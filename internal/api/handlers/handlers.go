@@ -2,11 +2,15 @@
 package handlers
 
 import (
-	"allaboutapps.dev/aw/go-starter/internal/api"
-	"allaboutapps.dev/aw/go-starter/internal/api/handlers/auth"
-	"allaboutapps.dev/aw/go-starter/internal/api/handlers/common"
-	"allaboutapps.dev/aw/go-starter/internal/api/handlers/push"
-	"allaboutapps.dev/aw/go-starter/internal/api/handlers/wellknown"
+	"github.com/kashguard/go-mpc-wallet/internal/api"
+	"github.com/kashguard/go-mpc-wallet/internal/api/handlers/auth"
+	"github.com/kashguard/go-mpc-wallet/internal/api/handlers/common"
+	"github.com/kashguard/go-mpc-wallet/internal/api/handlers/mpc/keys"
+	"github.com/kashguard/go-mpc-wallet/internal/api/handlers/mpc/nodes"
+	"github.com/kashguard/go-mpc-wallet/internal/api/handlers/mpc/sessions"
+	"github.com/kashguard/go-mpc-wallet/internal/api/handlers/mpc/signing"
+	"github.com/kashguard/go-mpc-wallet/internal/api/handlers/push"
+	"github.com/kashguard/go-mpc-wallet/internal/api/handlers/wellknown"
 	"github.com/labstack/echo/v4"
 )
 
@@ -28,6 +32,14 @@ func AttachAllRoutes(s *api.Server) {
 		common.GetReadyRoute(s),
 		common.GetSwaggerRoute(s),
 		common.GetVersionRoute(s),
+		keys.DeleteKeyRoute(s),
+		keys.GetKeyRoute(s),
+		keys.GetListKeysRoute(s),
+		keys.PostCreateKeyRoute(s),
+		nodes.GetNodeRoute(s),
+		nodes.PostRegisterNodeRoute(s),
+		sessions.PostCreateSessionRoute(s),
+		signing.PostSignRoute(s),
 		push.PutUpdatePushTokenRoute(s),
 		wellknown.GetAndroidDigitalAssetLinksRoute(s),
 		wellknown.GetAppleAppSiteAssociationRoute(s),

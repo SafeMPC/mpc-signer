@@ -5,13 +5,13 @@ import (
 	"net/http"
 	"testing"
 
-	"allaboutapps.dev/aw/go-starter/internal/api"
-	"allaboutapps.dev/aw/go-starter/internal/api/httperrors"
-	"allaboutapps.dev/aw/go-starter/internal/models"
-	"allaboutapps.dev/aw/go-starter/internal/test"
-	"allaboutapps.dev/aw/go-starter/internal/test/fixtures"
 	"github.com/aarondl/null/v8"
 	"github.com/aarondl/sqlboiler/v4/boil"
+	"github.com/kashguard/go-mpc-wallet/internal/api"
+	"github.com/kashguard/go-mpc-wallet/internal/api/httperrors"
+	"github.com/kashguard/go-mpc-wallet/internal/models"
+	"github.com/kashguard/go-mpc-wallet/internal/test"
+	"github.com/kashguard/go-mpc-wallet/internal/test/fixtures"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 )

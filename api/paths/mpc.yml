@@ -1,0 +1,388 @@
+paths:
+  /api/v1/mpc/keys:
+    post:
+      operationId: postCreateMpcKey
+      summary: 创建密钥分片
+      description: 执行分布式密钥生成（DKG），创建密钥分片并分发到各个节点
+      tags:
+        - MPC Keys
+      security:
+        - Bearer: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/postCreateKeyPayload"
+      responses:
+        "201":
+          description: 密钥创建成功
+          schema:
+            $ref: "#/definitions/createKeyResponse"
+        "400":
+          $ref: "#/responses/errorResponse"
+        "401":
+          $ref: "#/responses/errorResponse"
+        "403":
+          $ref: "#/responses/errorResponse"
+        "500":
+          $ref: "#/responses/errorResponse"
+    get:
+      operationId: getMpcKeys
+      summary: 列出密钥
+      description: 列出所有密钥，支持过滤和分页
+      tags:
+        - MPC Keys
+      security:
+        - Bearer: []
+      parameters:
+        - name: chain_type
+          in: query
+          type: string
+          description: 链类型过滤
+        - name: status
+          in: query
+          type: string
+          description: 状态过滤
+        - name: limit
+          in: query
+          type: integer
+          default: 50
+          maximum: 1000
+        - name: offset
+          in: query
+          type: integer
+          default: 0
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: "#/definitions/listKeysResponse"
+        "401":
+          $ref: "#/responses/errorResponse"
+        "500":
+          $ref: "#/responses/errorResponse"
+
+  /api/v1/mpc/keys/{keyId}:
+    get:
+      operationId: getMpcKey
+      summary: 获取密钥信息
+      description: 获取指定密钥的详细信息
+      tags:
+        - MPC Keys
+      security:
+        - Bearer: []
+      parameters:
+        - name: keyId
+          in: path
+          required: true
+          type: string
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: "#/definitions/getKeyResponse"
+        "404":
+          $ref: "#/responses/errorResponse"
+        "401":
+          $ref: "#/responses/errorResponse"
+        "500":
+          $ref: "#/responses/errorResponse"
+    delete:
+      operationId: deleteMpcKey
+      summary: 删除密钥
+      description: 删除密钥及其所有分片
+      tags:
+        - MPC Keys
+      security:
+        - Bearer: []
+      parameters:
+        - name: keyId
+          in: path
+          required: true
+          type: string
+      responses:
+        "200":
+          description: 删除成功
+        "404":
+          $ref: "#/responses/errorResponse"
+        "401":
+          $ref: "#/responses/errorResponse"
+        "403":
+          $ref: "#/responses/errorResponse"
+        "500":
+          $ref: "#/responses/errorResponse"
+
+  /api/v1/mpc/keys/{keyId}/address:
+    post:
+      operationId: postGenerateMpcKeyAddress
+      summary: 生成地址
+      description: 根据密钥生成区块链地址
+      tags:
+        - MPC Keys
+      security:
+        - Bearer: []
+      parameters:
+        - name: keyId
+          in: path
+          required: true
+          type: string
+        - name: chain_type
+          in: query
+          type: string
+          required: true
+      responses:
+        "200":
+          description: 成功
+        "404":
+          $ref: "#/responses/errorResponse"
+        "401":
+          $ref: "#/responses/errorResponse"
+        "500":
+          $ref: "#/responses/errorResponse"
+
+  /api/v1/mpc/sign:
+    post:
+      operationId: postMpcSign
+      summary: 阈值签名
+      description: 执行阈值签名，需要达到阈值的节点参与
+      tags:
+        - MPC Signing
+      security:
+        - Bearer: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/postSignPayload"
+      responses:
+        "200":
+          description: 签名成功
+          schema:
+            $ref: "#/definitions/signResponse"
+        "400":
+          $ref: "#/responses/errorResponse"
+        "401":
+          $ref: "#/responses/errorResponse"
+        "403":
+          $ref: "#/responses/errorResponse"
+        "500":
+          $ref: "#/responses/errorResponse"
+
+  /api/v1/mpc/nodes:
+    post:
+      operationId: postRegisterMpcNode
+      summary: 注册节点
+      description: 注册Coordinator或Participant节点
+      tags:
+        - MPC Nodes
+      security:
+        - Bearer: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/postRegisterNodePayload"
+      responses:
+        "201":
+          description: 节点注册成功
+          schema:
+            $ref: "#/definitions/registerNodeResponse"
+        "400":
+          $ref: "#/responses/errorResponse"
+        "401":
+          $ref: "#/responses/errorResponse"
+        "500":
+          $ref: "#/responses/errorResponse"
+    get:
+      operationId: getMpcNodes
+      summary: 列出节点
+      description: 列出所有节点，支持过滤和分页
+      tags:
+        - MPC Nodes
+      security:
+        - Bearer: []
+      parameters:
+        - name: node_type
+          in: query
+          type: string
+          description: 节点类型过滤
+        - name: status
+          in: query
+          type: string
+          description: 状态过滤
+        - name: limit
+          in: query
+          type: integer
+          default: 50
+        - name: offset
+          in: query
+          type: integer
+          default: 0
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: "#/definitions/listNodesResponse"
+        "401":
+          $ref: "#/responses/errorResponse"
+        "500":
+          $ref: "#/responses/errorResponse"
+
+  /api/v1/mpc/nodes/{nodeId}:
+    get:
+      operationId: getMpcNode
+      summary: 获取节点信息
+      description: 获取指定节点的详细信息
+      tags:
+        - MPC Nodes
+      security:
+        - Bearer: []
+      parameters:
+        - name: nodeId
+          in: path
+          required: true
+          type: string
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: "#/definitions/getNodeResponse"
+        "404":
+          $ref: "#/responses/errorResponse"
+        "401":
+          $ref: "#/responses/errorResponse"
+        "500":
+          $ref: "#/responses/errorResponse"
+
+  /api/v1/mpc/nodes/{nodeId}/health:
+    get:
+      operationId: getMpcNodeHealth
+      summary: 节点健康检查
+      description: 检查节点的健康状态
+      tags:
+        - MPC Nodes
+      security:
+        - Bearer: []
+      parameters:
+        - name: nodeId
+          in: path
+          required: true
+          type: string
+      responses:
+        "200":
+          description: 成功
+        "404":
+          $ref: "#/responses/errorResponse"
+        "401":
+          $ref: "#/responses/errorResponse"
+        "500":
+          $ref: "#/responses/errorResponse"
+
+  /api/v1/mpc/sessions:
+    post:
+      operationId: postCreateMpcSession
+      summary: 创建签名会话
+      description: 创建新的签名会话
+      tags:
+        - MPC Sessions
+      security:
+        - Bearer: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/postCreateSessionPayload"
+      responses:
+        "201":
+          description: 会话创建成功
+          schema:
+            $ref: "#/definitions/createSessionResponse"
+        "400":
+          $ref: "#/responses/errorResponse"
+        "401":
+          $ref: "#/responses/errorResponse"
+        "500":
+          $ref: "#/responses/errorResponse"
+
+  /api/v1/mpc/sessions/{sessionId}:
+    get:
+      operationId: getMpcSession
+      summary: 获取会话状态
+      description: 获取签名会话的当前状态
+      tags:
+        - MPC Sessions
+      security:
+        - Bearer: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          type: string
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: "#/definitions/getSessionResponse"
+        "404":
+          $ref: "#/responses/errorResponse"
+        "401":
+          $ref: "#/responses/errorResponse"
+        "500":
+          $ref: "#/responses/errorResponse"
+
+  /api/v1/mpc/sessions/{sessionId}/join:
+    post:
+      operationId: postJoinMpcSession
+      summary: 加入签名会话
+      description: 节点加入签名会话
+      tags:
+        - MPC Sessions
+      security:
+        - Bearer: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          type: string
+        - name: node_id
+          in: query
+          type: string
+          required: true
+      responses:
+        "200":
+          description: 加入成功
+        "400":
+          $ref: "#/responses/errorResponse"
+        "401":
+          $ref: "#/responses/errorResponse"
+        "500":
+          $ref: "#/responses/errorResponse"
+
+  /api/v1/mpc/sessions/{sessionId}/cancel:
+    post:
+      operationId: postCancelMpcSession
+      summary: 取消签名会话
+      description: 取消正在进行的签名会话
+      tags:
+        - MPC Sessions
+      security:
+        - Bearer: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          type: string
+      responses:
+        "200":
+          description: 取消成功
+        "404":
+          $ref: "#/responses/errorResponse"
+        "401":
+          $ref: "#/responses/errorResponse"
+        "500":
+          $ref: "#/responses/errorResponse"
+

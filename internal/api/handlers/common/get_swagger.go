@@ -4,8 +4,8 @@ package common
 import (
 	"path/filepath"
 
-	"allaboutapps.dev/aw/go-starter/internal/api"
-	"allaboutapps.dev/aw/go-starter/internal/api/middleware"
+	"github.com/kashguard/go-mpc-wallet/internal/api"
+	"github.com/kashguard/go-mpc-wallet/internal/api/middleware"
 	"github.com/labstack/echo/v4"
 )
 

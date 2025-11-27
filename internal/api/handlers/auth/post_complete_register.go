@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"net/http"
 
-	"allaboutapps.dev/aw/go-starter/internal/api"
-	"allaboutapps.dev/aw/go-starter/internal/api/handlers/constants"
-	"allaboutapps.dev/aw/go-starter/internal/data/dto"
-	"allaboutapps.dev/aw/go-starter/internal/types/auth"
+	"github.com/kashguard/go-mpc-wallet/internal/api"
+	"github.com/kashguard/go-mpc-wallet/internal/api/handlers/constants"
+	"github.com/kashguard/go-mpc-wallet/internal/data/dto"
+	"github.com/kashguard/go-mpc-wallet/internal/types/auth"
 
-	"allaboutapps.dev/aw/go-starter/internal/util"
+	"github.com/kashguard/go-mpc-wallet/internal/util"
 	"github.com/labstack/echo/v4"
 )
 

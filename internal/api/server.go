@@ -7,17 +7,25 @@ import (
 	"fmt"
 	"net/http"
 
-	"allaboutapps.dev/aw/go-starter/internal/config"
-	"allaboutapps.dev/aw/go-starter/internal/data/dto"
-	"allaboutapps.dev/aw/go-starter/internal/data/local"
-	"allaboutapps.dev/aw/go-starter/internal/i18n"
-	"allaboutapps.dev/aw/go-starter/internal/mailer"
-	"allaboutapps.dev/aw/go-starter/internal/metrics"
-	"allaboutapps.dev/aw/go-starter/internal/push"
-	"allaboutapps.dev/aw/go-starter/internal/util"
 	"github.com/dropbox/godropbox/time2"
+	"github.com/kashguard/go-mpc-wallet/internal/config"
+	"github.com/kashguard/go-mpc-wallet/internal/data/dto"
+	"github.com/kashguard/go-mpc-wallet/internal/data/local"
+	"github.com/kashguard/go-mpc-wallet/internal/i18n"
+	"github.com/kashguard/go-mpc-wallet/internal/mailer"
+	"github.com/kashguard/go-mpc-wallet/internal/metrics"
+	"github.com/kashguard/go-mpc-wallet/internal/push"
+	"github.com/kashguard/go-mpc-wallet/internal/util"
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog/log"
+
+	// MPC imports
+	"github.com/kashguard/go-mpc-wallet/internal/mpc/coordinator"
+	"github.com/kashguard/go-mpc-wallet/internal/mpc/key"
+	"github.com/kashguard/go-mpc-wallet/internal/mpc/node"
+	"github.com/kashguard/go-mpc-wallet/internal/mpc/participant"
+	"github.com/kashguard/go-mpc-wallet/internal/mpc/session"
+	"github.com/kashguard/go-mpc-wallet/internal/mpc/signing"
 
 	// Import postgres driver for database/sql package
 	_ "github.com/lib/pq"
@@ -29,6 +37,7 @@ type Router struct {
 	Management *echo.Group
 	APIV1Auth  *echo.Group
 	APIV1Push  *echo.Group
+	APIV1MPC   *echo.Group
 	WellKnown  *echo.Group
 }
 
@@ -56,6 +65,16 @@ type Server struct {
 	Auth    AuthService
 	Local   *local.Service
 	Metrics *metrics.Service
+
+	// MPC services
+	KeyService         *key.Service
+	SigningService     *signing.Service
+	CoordinatorService *coordinator.Service
+	ParticipantService *participant.Service
+	NodeManager        *node.Manager
+	NodeRegistry       *node.Registry
+	NodeDiscovery      *node.Discovery
+	SessionManager     *session.Manager
 }
 
 // newServerWithComponents is used by wire to initialize the server components.
@@ -71,6 +90,14 @@ func newServerWithComponents(
 	auth AuthService,
 	local *local.Service,
 	metrics *metrics.Service,
+	keyService *key.Service,
+	signingService *signing.Service,
+	coordinatorService *coordinator.Service,
+	participantService *participant.Service,
+	nodeManager *node.Manager,
+	nodeRegistry *node.Registry,
+	nodeDiscovery *node.Discovery,
+	sessionManager *session.Manager,
 ) *Server {
 	return &Server{
 		Config:  cfg,
@@ -82,6 +109,15 @@ func newServerWithComponents(
 		Auth:    auth,
 		Local:   local,
 		Metrics: metrics,
+
+		KeyService:         keyService,
+		SigningService:     signingService,
+		CoordinatorService: coordinatorService,
+		ParticipantService: participantService,
+		NodeManager:        nodeManager,
+		NodeRegistry:       nodeRegistry,
+		NodeDiscovery:      nodeDiscovery,
+		SessionManager:     sessionManager,
 	}
 }
 

@@ -7,12 +7,12 @@
 package api
 
 import (
-	"allaboutapps.dev/aw/go-starter/internal/auth"
-	"allaboutapps.dev/aw/go-starter/internal/config"
-	"allaboutapps.dev/aw/go-starter/internal/data/local"
-	"allaboutapps.dev/aw/go-starter/internal/metrics"
 	"database/sql"
 	"github.com/google/wire"
+	"github.com/kashguard/go-mpc-wallet/internal/auth"
+	"github.com/kashguard/go-mpc-wallet/internal/config"
+	"github.com/kashguard/go-mpc-wallet/internal/data/local"
+	"github.com/kashguard/go-mpc-wallet/internal/metrics"
 	"testing"
 )
 
@@ -48,7 +48,26 @@ func InitNewServer(server config.Server) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService)
+	metadataStore := NewMetadataStore(db)
+	keyShareStorage, err := NewKeyShareStorage(server)
+	if err != nil {
+		return nil, err
+	}
+	engine := NewProtocolEngine(server)
+	keyService := NewKeyServiceProvider(metadataStore, keyShareStorage, engine)
+	client, err := NewRedisClient(server)
+	if err != nil {
+		return nil, err
+	}
+	sessionStore := NewSessionStore(client)
+	manager := NewSessionManager(metadataStore, sessionStore, server)
+	nodeManager := NewNodeManager(metadataStore, server)
+	discovery := NewNodeDiscovery(nodeManager)
+	signingService := NewSigningServiceProvider(engine, manager, discovery)
+	coordinatorService := NewCoordinatorServiceProvider(metadataStore, keyService, signingService, manager, nodeManager, discovery, engine)
+	participantService := NewParticipantServiceProvider(server, keyShareStorage, engine)
+	registry := NewNodeRegistry(nodeManager)
+	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService, keyService, signingService, coordinatorService, participantService, nodeManager, registry, discovery, manager)
 	return apiServer, nil
 }
 
@@ -74,7 +93,26 @@ func InitNewServerWithDB(server config.Server, db *sql.DB, t ...*testing.T) (*Se
 	if err != nil {
 		return nil, err
 	}
-	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService)
+	metadataStore := NewMetadataStore(db)
+	keyShareStorage, err := NewKeyShareStorage(server)
+	if err != nil {
+		return nil, err
+	}
+	engine := NewProtocolEngine(server)
+	keyService := NewKeyServiceProvider(metadataStore, keyShareStorage, engine)
+	client, err := NewRedisClient(server)
+	if err != nil {
+		return nil, err
+	}
+	sessionStore := NewSessionStore(client)
+	manager := NewSessionManager(metadataStore, sessionStore, server)
+	nodeManager := NewNodeManager(metadataStore, server)
+	discovery := NewNodeDiscovery(nodeManager)
+	signingService := NewSigningServiceProvider(engine, manager, discovery)
+	coordinatorService := NewCoordinatorServiceProvider(metadataStore, keyService, signingService, manager, nodeManager, discovery, engine)
+	participantService := NewParticipantServiceProvider(server, keyShareStorage, engine)
+	registry := NewNodeRegistry(nodeManager)
+	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService, keyService, signingService, coordinatorService, participantService, nodeManager, registry, discovery, manager)
 	return apiServer, nil
 }
 
@@ -87,8 +125,25 @@ var serviceSet = wire.NewSet(
 	NewMailer,
 	NewI18N,
 	authServiceSet, local.NewService, metrics.New, NewClock,
+	mpcServiceSet,
 )
 
 var authServiceSet = wire.NewSet(
 	NewAuthService, wire.Bind(new(AuthService), new(*auth.Service)),
+)
+
+var mpcServiceSet = wire.NewSet(
+	NewMetadataStore,
+	NewRedisClient,
+	NewSessionStore,
+	NewKeyShareStorage,
+	NewProtocolEngine,
+	NewNodeManager,
+	NewNodeRegistry,
+	NewNodeDiscovery,
+	NewSessionManager,
+	NewKeyServiceProvider,
+	NewSigningServiceProvider,
+	NewCoordinatorServiceProvider,
+	NewParticipantServiceProvider,
 )

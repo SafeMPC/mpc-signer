@@ -54,4 +54,18 @@ func (o *SwaggerSpec) initHandlerCache() {
 	o.Handlers["POST"]["/api/v1/auth/refresh"] = true
 	o.Handlers["POST"]["/api/v1/auth/register"] = true
 	o.Handlers["PUT"]["/api/v1/push/token"] = true
+	o.Handlers["DELETE"]["/api/v1/mpc/keys/{keyId}"] = true
+	o.Handlers["GET"]["/api/v1/mpc/keys/{keyId}"] = true
+	o.Handlers["GET"]["/api/v1/mpc/keys"] = true
+	o.Handlers["GET"]["/api/v1/mpc/nodes/{nodeId}"] = true
+	o.Handlers["GET"]["/api/v1/mpc/nodes/{nodeId}/health"] = true
+	o.Handlers["GET"]["/api/v1/mpc/nodes"] = true
+	o.Handlers["GET"]["/api/v1/mpc/sessions/{sessionId}"] = true
+	o.Handlers["POST"]["/api/v1/mpc/sessions/{sessionId}/cancel"] = true
+	o.Handlers["POST"]["/api/v1/mpc/keys"] = true
+	o.Handlers["POST"]["/api/v1/mpc/sessions"] = true
+	o.Handlers["POST"]["/api/v1/mpc/keys/{keyId}/address"] = true
+	o.Handlers["POST"]["/api/v1/mpc/sessions/{sessionId}/join"] = true
+	o.Handlers["POST"]["/api/v1/mpc/sign"] = true
+	o.Handlers["POST"]["/api/v1/mpc/nodes"] = true
 }

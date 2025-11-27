@@ -6,11 +6,11 @@ import (
 	"database/sql"
 	"testing"
 
-	"allaboutapps.dev/aw/go-starter/internal/auth"
-	"allaboutapps.dev/aw/go-starter/internal/config"
-	"allaboutapps.dev/aw/go-starter/internal/data/local"
-	"allaboutapps.dev/aw/go-starter/internal/metrics"
 	"github.com/google/wire"
+	"github.com/kashguard/go-mpc-wallet/internal/auth"
+	"github.com/kashguard/go-mpc-wallet/internal/config"
+	"github.com/kashguard/go-mpc-wallet/internal/data/local"
+	"github.com/kashguard/go-mpc-wallet/internal/metrics"
 )
 
 // INJECTORS - https://github.com/google/wire/blob/main/docs/guide.md#injectors
@@ -25,11 +25,28 @@ var serviceSet = wire.NewSet(
 	local.NewService,
 	metrics.New,
 	NewClock,
+	mpcServiceSet,
 )
 
 var authServiceSet = wire.NewSet(
 	NewAuthService,
 	wire.Bind(new(AuthService), new(*auth.Service)),
+)
+
+var mpcServiceSet = wire.NewSet(
+	NewMetadataStore,
+	NewRedisClient,
+	NewSessionStore,
+	NewKeyShareStorage,
+	NewProtocolEngine,
+	NewNodeManager,
+	NewNodeRegistry,
+	NewNodeDiscovery,
+	NewSessionManager,
+	NewKeyServiceProvider,
+	NewSigningServiceProvider,
+	NewCoordinatorServiceProvider,
+	NewParticipantServiceProvider,
 )
 
 // InitNewServer returns a new Server instance.
