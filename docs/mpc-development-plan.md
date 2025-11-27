@@ -18,9 +18,9 @@
 
 | 状态 | 完成内容 |
 | --- | --- |
-| ✅ 已完成 | 依赖与配置体系、数据库迁移、PostgreSQL/Redis/密钥分片存储、协议引擎接口与 GG18/GG20 框架、Key/Signing/Coordinator/Participant/Node/Session 服务、Wire 依赖注入、MPC Swagger + 主要 handlers、Bitcoin/Ethereum 链适配器 |
+| ✅ 已完成 | 依赖与配置体系、数据库迁移、PostgreSQL/Redis/密钥分片存储、协议引擎接口与 GG18/GG20 框架、Key/Signing/Coordinator/Participant/Node/Session 服务、Wire 依赖注入、MPC Swagger + 主要 handlers、Bitcoin/Ethereum 链适配器、**分布式通信基础设施（gRPC + Protocol Buffers + 服务发现 + 健康检查 + 负载均衡）** |
 | 🚧 进行中 | 补齐 Swagger 中剩余的 handler（nodes 列表/健康、sessions join/cancel/address 等）、链级业务完善、单元/集成测试 |
-| ⏳ 待启动 | Phase 2+ 的密钥轮换、高可用、更多协议、性能与安全增强 |
+| ⏳ 待启动 | GG20协议实现（DKG + 阈值签名）、Phase 2+ 的密钥轮换、高可用、更多协议、性能与安全增强 |
 
 **推荐实施顺序**：
 1. 先实现Phase 1 MVP（2-of-3阈值签名、GG18/GG20、BTC/ETH支持）
@@ -355,34 +355,34 @@
 ### 阶段1.1+: 核心通信基础设施 (2周)
 
 #### Week 1: 基础通信框架
-- [ ] 添加gRPC依赖和Protobuf定义
+- [x] 添加gRPC依赖和Protobuf定义
   - `google.golang.org/grpc@v1.60.1`
   - `google.golang.org/protobuf@v1.33.0`
   - 创建`proto/mpc/v1/`目录结构
-- [ ] 实现基础的gRPC服务框架
+- [x] 实现基础的gRPC服务框架
   - 创建`internal/grpc/`包
   - 实现服务注册和启动逻辑
-- [ ] 创建Protocol Buffer消息定义
+- [x] 创建Protocol Buffer消息定义
   - `proto/mpc/v1/mpc.proto` - 核心MPC消息
   - `proto/mpc/v1/registry.proto` - 服务注册消息
   - 生成Go代码和gRPC stubs
-- [ ] 实现节点心跳机制
+- [x] 实现节点心跳机制
   - 心跳服务实现
   - 节点状态跟踪
 
 #### Week 2: 服务发现集成
-- [ ] 集成Consul客户端
+- [x] 集成Consul客户端
   - 添加`github.com/hashicorp/consul/api@v1.28.2`
   - 创建`internal/discovery/consul.go`
-- [ ] 实现服务注册和发现
+- [x] 实现服务注册和发现
   - 服务注册接口实现
   - 服务发现接口实现
   - 注册中心抽象层
-- [ ] 添加健康检查机制
+- [x] 添加健康检查机制
   - HTTP健康检查端点
   - gRPC健康检查服务
   - 自动注销机制
-- [ ] 实现负载均衡
+- [x] 实现负载均衡
   - 客户端负载均衡
   - 服务端负载均衡
   - 故障转移机制

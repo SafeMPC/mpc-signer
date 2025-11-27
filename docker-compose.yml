@@ -35,6 +35,8 @@ services:
     depends_on:
       - postgres
       - integresql
+      - consul
+      - redis
     environment:
       # required: env for main working database, service
       # default for sql-migrate (target development) and psql cli tool
@@ -70,6 +72,26 @@ services:
 
       # path to the changie config
       CHANGIE_CONFIG_PATH: "/app/.changie-go-starter.yaml"
+
+      # MPC configuration
+      MPC_NODE_TYPE: "coordinator"
+      MPC_NODE_ID: "coordinator-1"
+      MPC_CONSUL_ADDRESS: "consul:8500"
+      MPC_STORAGE_BACKEND: "postgresql"
+      MPC_REDIS_ENDPOINT: "redis:6379"
+      MPC_KEY_SHARE_STORAGE_PATH: "/app/var/lib/mpc/key-shares"
+      MPC_KEY_SHARE_ENCRYPTION_KEY: "your-encryption-key-here-change-in-production"
+      MPC_SUPPORTED_PROTOCOLS: "gg18,gg20,frost"
+      MPC_DEFAULT_PROTOCOL: "gg20"
+      MPC_HTTP_PORT: "8080"
+      MPC_GRPC_PORT: "9090"
+      MPC_TLS_ENABLED: "false"
+      MPC_ENABLE_AUDIT: "true"
+      MPC_ENABLE_POLICY: "true"
+      MPC_KEY_ROTATION_DAYS: "0"
+      MPC_MAX_CONCURRENT_SESSIONS: "100"
+      MPC_MAX_CONCURRENT_SIGNINGS: "50"
+      MPC_SESSION_TIMEOUT: "300"
 
     # Uncomment the next four lines if you will use a ptrace-based debugger like C++, Go, and Rust.
     cap_add:
@@ -147,9 +169,32 @@ services:
     ports:
       - "8081:8081"
 
+  consul:
+    image: consul:1.15
+    ports:
+      - "8500:8500"
+      - "8600:8600/udp"
+    command: "agent -server -bootstrap-expect=1 -ui -client=0.0.0.0 -log-level=info"
+    volumes:
+      - consul-data:/consul/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+
 volumes:
   # postgresql: declare a named volume to persist DB data
   pgvolume:
+
+  # consul: persist consul data
+  consul-data:
+
+  # redis: persist redis data
+  redis-data:
 
   # go: go mod cached downloads
   go-pkg:
