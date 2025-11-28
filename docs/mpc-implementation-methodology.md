@@ -74,6 +74,8 @@ Baseline -> Phase 1A (协议实现) -> Phase 1B (业务接入) -> Phase 1C (系�
 | Chaos 测试 | 节点掉线、网络分区 | 验证容错策略 |
 | 性能测试 | Benchmark + Profiling | p95/p99 延迟、TPS |
 
+> 最新 GG18/GG20 stub 基准（Apple M1）：`BenchmarkGG18ThresholdSign` ≈ **43µs/4.6KB/93 allocs**，`BenchmarkGG20ThresholdSign` ≈ **42µs/4.4KB/91 allocs**，供 Phase 1 后续性能对比使用。
+
 ### 4.2 CI/CD Pipeline
 
 ```yaml

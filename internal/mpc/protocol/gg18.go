@@ -2,61 +2,244 @@ package protocol
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"strings"
+	"sync"
+	"time"
 
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
+	"github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
+	"github.com/kashguard/tss-lib/ecdsa/keygen"
+	"github.com/kashguard/tss-lib/tss"
 	"github.com/pkg/errors"
 )
 
-// GG18Protocol GG18协议实现
-type GG18Protocol struct {
-	// tss-lib相关配置
-	curve string
+// gg18KeyRecord 保存密钥生成后的内部状态（使用 tss-lib 的真实数据）
+type gg18KeyRecord struct {
+	// 注意：不再存储完整私钥，只存储 tss-lib 的保存数据
+	KeyData    *keygen.LocalPartySaveData
+	PublicKey  *PublicKey
+	Threshold  int
+	TotalNodes int
+	NodeIDs    []string
 }
 
-// NewGG18Protocol 创建GG18协议实例
-func NewGG18Protocol(curve string) *GG18Protocol {
+// GG18Protocol GG18协议实现（基于 tss-lib 的生产级实现）
+type GG18Protocol struct {
+	curve string
+
+	mu         sync.RWMutex
+	keyRecords map[string]*gg18KeyRecord
+
+	roundMu     sync.Mutex
+	roundStates map[string]*signingRoundState
+
+	// tss-lib 管理器
+	partyManager *tssPartyManager
+
+	// 当前节点ID（用于参与协议）
+	thisNodeID string
+
+	// 消息路由函数（用于节点间通信）
+	messageRouter func(nodeID string, msg tss.Message) error
+}
+
+// signingRoundState 签名轮次状态（用于跟踪协议进度）
+type signingRoundState struct {
+	SessionID      string
+	TotalRounds    int
+	CurrentRound   int
+	LastUpdated    time.Time
+	NodeIDs        []string
+	LastMessage    string
+	RoundDurations []time.Duration
+}
+
+// NewGG18Protocol 创建GG18协议实例（生产级实现，基于 tss-lib）
+func NewGG18Protocol(curve string, thisNodeID string, messageRouter func(nodeID string, msg tss.Message) error) *GG18Protocol {
+	partyManager := newTSSPartyManager(messageRouter)
 	return &GG18Protocol{
-		curve: curve,
+		curve:         curve,
+		keyRecords:    make(map[string]*gg18KeyRecord),
+		roundStates:   make(map[string]*signingRoundState),
+		partyManager:  partyManager,
+		thisNodeID:    thisNodeID,
+		messageRouter: messageRouter,
 	}
 }
 
-// GenerateKeyShare 分布式密钥生成（DKG）
-func (p *GG18Protocol) GenerateKeyShare(ctx context.Context, req *KeyGenRequest) (*KeyGenResponse, error) {
-	// TODO: 实现GG18 DKG协议
-	// 1. 初始化tss-lib的DKG参数
-	// 2. 协调所有节点参与DKG
-	// 3. 生成密钥分片
-	// 4. 计算公钥
-	// 5. 返回密钥分片和公钥
-
-	// 临时实现：返回错误，提示需要实现
-	return nil, errors.New("GG18 DKG not yet implemented - requires tss-lib integration")
+// getKeyRecord 获取密钥记录（测试或签名阶段使用）
+func (p *GG18Protocol) getKeyRecord(keyID string) (*gg18KeyRecord, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	record, ok := p.keyRecords[keyID]
+	return record, ok
 }
 
-// ThresholdSign 阈值签名
-func (p *GG18Protocol) ThresholdSign(ctx context.Context, sessionID string, req *SignRequest) (*SignResponse, error) {
-	// TODO: 实现GG18阈值签名协议
-	// 1. 创建签名会话
-	// 2. 选择参与节点（达到阈值）
-	// 3. 执行4轮签名协议：
-	//    - Round 1: 生成随机数，交换承诺
-	//    - Round 2: 交换随机数，验证承诺
-	//    - Round 3: 计算签名分片
-	//    - Round 4: 聚合签名分片
-	// 4. 生成最终签名
-	// 5. 验证签名
+func (p *GG18Protocol) saveKeyRecord(keyID string, record *gg18KeyRecord) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.keyRecords[keyID] = record
+}
 
-	// 临时实现：返回错误，提示需要实现
-	return nil, errors.New("GG18 threshold signing not yet implemented - requires tss-lib integration")
+// GenerateKeyShare 分布式密钥生成（使用 tss-lib 的真实 DKG 协议）
+func (p *GG18Protocol) GenerateKeyShare(ctx context.Context, req *KeyGenRequest) (*KeyGenResponse, error) {
+	if err := p.ValidateKeyGenRequest(req); err != nil {
+		return nil, errors.Wrap(err, "invalid key generation request")
+	}
+
+	keyID := req.KeyID
+	if keyID == "" {
+		keyID = fmt.Sprintf("gg18-key-%s", generateKeyID())
+	}
+
+	nodeIDs, err := normalizeNodeIDs(req.NodeIDs, req.TotalNodes)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid node IDs")
+	}
+
+	// 使用 tss-lib 执行真正的 DKG
+	keyData, err := p.partyManager.executeKeygen(ctx, keyID, nodeIDs, req.Threshold, p.thisNodeID)
+	if err != nil {
+		return nil, errors.Wrap(err, "execute tss-lib keygen")
+	}
+
+	// 转换 tss-lib 数据为我们的格式
+	keyShares, publicKey, err := convertTSSKeyData(keyID, keyData, nodeIDs)
+	if err != nil {
+		return nil, errors.Wrap(err, "convert tss key data")
+	}
+
+	// 保存密钥记录（不包含完整私钥）
+	record := &gg18KeyRecord{
+		KeyData:    keyData,
+		PublicKey:  publicKey,
+		Threshold:  req.Threshold,
+		TotalNodes: req.TotalNodes,
+		NodeIDs:    nodeIDs,
+	}
+	p.saveKeyRecord(keyID, record)
+
+	return &KeyGenResponse{
+		KeyShares: keyShares,
+		PublicKey: publicKey,
+	}, nil
+}
+
+// ThresholdSign 阈值签名（使用 tss-lib 的真实签名协议）
+func (p *GG18Protocol) ThresholdSign(ctx context.Context, sessionID string, req *SignRequest) (*SignResponse, error) {
+	if err := p.ValidateSignRequest(req); err != nil {
+		return nil, errors.Wrap(err, "invalid sign request")
+	}
+
+	// 获取密钥记录
+	record, ok := p.getKeyRecord(req.KeyID)
+	if !ok {
+		return nil, errors.Errorf("key %s not found", req.KeyID)
+	}
+
+	if record.KeyData == nil {
+		return nil, errors.New("key data not found in record")
+	}
+
+	// 解析消息
+	message, err := resolveMessagePayload(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "resolve message payload")
+	}
+
+	// 使用 tss-lib 执行真正的阈值签名（GG18 默认选项）
+	sigData, err := p.partyManager.executeSigning(
+		ctx,
+		sessionID,
+		req.KeyID,
+		message,
+		req.NodeIDs,
+		p.thisNodeID,
+		record.KeyData,
+		DefaultSigningOptions(),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "execute tss-lib signing")
+	}
+
+	// 转换签名格式
+	signature, err := convertTSSSignature(sigData)
+	if err != nil {
+		return nil, errors.Wrap(err, "convert tss signature")
+	}
+
+	return &SignResponse{
+		Signature: signature,
+		PublicKey: record.PublicKey,
+	}, nil
 }
 
 // VerifySignature 签名验证
 func (p *GG18Protocol) VerifySignature(ctx context.Context, sig *Signature, msg []byte, pubKey *PublicKey) (bool, error) {
-	// TODO: 实现签名验证
-	// 使用tss-lib或标准库验证ECDSA签名
+	return verifyECDSASignature(sig, msg, pubKey)
+}
 
-	// 临时实现：返回错误，提示需要实现
-	return false, errors.New("GG18 signature verification not yet implemented")
+// 辅助函数
+
+func generateKeyID() string {
+	return fmt.Sprintf("key-%d", time.Now().UnixNano())
+}
+
+func normalizeNodeIDs(ids []string, total int) ([]string, error) {
+	if len(ids) == 0 {
+		generated := make([]string, total)
+		for i := 0; i < total; i++ {
+			generated[i] = fmt.Sprintf("node-%02d", i+1)
+		}
+		return generated, nil
+	}
+	if len(ids) != total {
+		return nil, fmt.Errorf("node IDs count mismatch: expected %d, got %d", total, len(ids))
+	}
+	return ids, nil
+}
+
+func resolveMessagePayload(req *SignRequest) ([]byte, error) {
+	switch {
+	case len(req.Message) > 0:
+		return req.Message, nil
+	case req.MessageHex != "":
+		payload := strings.TrimPrefix(req.MessageHex, "0x")
+		msg, err := hex.DecodeString(payload)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid message hex")
+		}
+		return msg, nil
+	default:
+		return nil, errors.New("message payload is empty")
+	}
+}
+
+func verifyECDSASignature(sig *Signature, msg []byte, pubKey *PublicKey) (bool, error) {
+	if sig == nil || len(sig.Bytes) == 0 {
+		return false, errors.New("signature bytes missing")
+	}
+	if len(msg) == 0 {
+		return false, errors.New("message is empty")
+	}
+	if pubKey == nil || len(pubKey.Bytes) == 0 {
+		return false, errors.New("public key is empty")
+	}
+
+	hash := sha256.Sum256(msg)
+	parsedSig, err := ecdsa.ParseDERSignature(sig.Bytes)
+	if err != nil {
+		return false, errors.Wrap(err, "parse signature")
+	}
+	parsedPub, err := secp256k1.ParsePubKey(pubKey.Bytes)
+	if err != nil {
+		return false, errors.Wrap(err, "parse pub key")
+	}
+
+	return parsedSig.Verify(hash[:], parsedPub), nil
 }
 
 // RotateKey 密钥轮换
@@ -103,7 +286,7 @@ func (p *GG18Protocol) ValidateKeyGenRequest(req *KeyGenRequest) error {
 		return fmt.Errorf("total nodes must be at least threshold")
 	}
 
-	if len(req.NodeIDs) != req.TotalNodes {
+	if len(req.NodeIDs) != 0 && len(req.NodeIDs) != req.TotalNodes {
 		return fmt.Errorf("node IDs count mismatch: expected %d, got %d", req.TotalNodes, len(req.NodeIDs))
 	}
 

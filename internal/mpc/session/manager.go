@@ -14,6 +14,7 @@ type Manager struct {
 	metadataStore storage.MetadataStore
 	sessionStore  storage.SessionStore
 	timeout       time.Duration
+	stateStore    *StateStore
 }
 
 // NewManager 创建会话管理器
@@ -22,6 +23,7 @@ func NewManager(metadataStore storage.MetadataStore, sessionStore storage.Sessio
 		metadataStore: metadataStore,
 		sessionStore:  sessionStore,
 		timeout:       timeout,
+		stateStore:    NewStateStore(metadataStore, sessionStore),
 	}
 }
 
@@ -208,6 +210,31 @@ func (m *Manager) CheckTimeout(ctx context.Context, sessionID string) (bool, err
 	}
 
 	return false, nil
+}
+
+// SaveRoundProgress 同步协议轮次信息
+func (m *Manager) SaveRoundProgress(ctx context.Context, progress *RoundProgress) error {
+	return m.stateStore.SaveRoundProgress(ctx, progress)
+}
+
+// LoadRoundProgress 读取协议轮次信息
+func (m *Manager) LoadRoundProgress(ctx context.Context, sessionID string) (*RoundProgress, error) {
+	return m.stateStore.LoadRoundProgress(ctx, sessionID)
+}
+
+// AppendWAL 追加 WAL 记录
+func (m *Manager) AppendWAL(ctx context.Context, record *WALRecord) error {
+	return m.stateStore.AppendWAL(ctx, record)
+}
+
+// ReplayWAL 回放 WAL
+func (m *Manager) ReplayWAL(ctx context.Context, sessionID string) ([]*WALRecord, error) {
+	return m.stateStore.ReplayWAL(ctx, sessionID)
+}
+
+// ObserveRoundMetric 记录轮次耗时指标
+func (m *Manager) ObserveRoundMetric(protocol string, round int, duration time.Duration) {
+	m.stateStore.ObserveRoundMetric(protocol, round, duration)
 }
 
 // convertStorageSession 转换存储会话为会话

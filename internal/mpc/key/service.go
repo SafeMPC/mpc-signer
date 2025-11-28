@@ -40,6 +40,7 @@ func (s *Service) CreateKey(ctx context.Context, req *CreateKeyRequest) (*KeyMet
 	nodeIDs := []string{} // 需要从节点管理器获取
 
 	dkgReq := &protocol.KeyGenRequest{
+		KeyID:      keyID,
 		Algorithm:  req.Algorithm,
 		Curve:      req.Curve,
 		Threshold:  req.Threshold,

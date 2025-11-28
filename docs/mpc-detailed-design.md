@@ -505,6 +505,13 @@ sequenceDiagram
     Coordinator-->>Client: 返回签名结果
 ```
 
+#### 2.1.5 Session State Store（持久化 + WAL + 指标）
+
+- `SessionManager` 现在内嵌 [`StateStore`](internal/mpc/session/store.go)，在 `CreateSession / UpdateSession` 之外额外提供 `SaveRoundProgress`、`LoadRoundProgress`、`AppendWAL`、`ReplayWAL`、`ObserveRoundMetric` 等高级接口，方便协议层记录实时状态。
+- `StateStore` 通过 PG (`storage.MetadataStore`) + Redis (`storage.SessionStore`) 双写保证状态落盘；轮次更新时刷新 `CurrentRound/TotalRounds/ParticipatingNodes/DurationMs`，并缓存到 Redis，TTL 默认继承会话超时。
+- WAL 目前以内存 map 形式实现（`walSequences` + `wal`），支持记录尚未持久化的 round event，后续可以扩展到 Kafka/Stream。`ReplayWAL` 在 Crash-Recovery 时用于重新驱动协议。
+- 指标：通过 `prometheus` 直方图 `mpc_session_round_duration_seconds{protocol,round}` 记录每个轮次的耗时，便于在 Phase 1C 统一挂到 `/metrics` 暴露。
+
 ### 2.2 MPC Participant Service (参与者服务)
 
 #### 2.2.1 模块职责
@@ -824,6 +831,13 @@ sequenceDiagram
     Coordinator-->>Client: 返回密钥信息
 ```
 
+实现要点（详见 [`internal/mpc/protocol/gg18_dkg.go`](internal/mpc/protocol/gg18_dkg.go)）：
+- DKG 使用 `secp256k1` 私钥作为秘密，将其视为多项式常数项，利用 `SHA-256(secret || coefficient_index)`  deterministically 派生多项式系数，确保测试可复现。
+- 通过 `splitSecret` 将私钥拆分为 `TotalNodes` 份 Shamir Shares，每份附带 `ShareID`、`NodeID`、索引，写回 `KeyGenResponse`，同时缓存到 `GG18Protocol` 内部记录中，方便后续签名阶段组合。
+- 若调用方未提供 `NodeIDs`，协议会自动生成 `node-XX` 序列，避免上层协调逻辑阻塞。
+- `reconstructSecret`/`lagrangeInterpolate` 提供阈值恢复能力，用于单元测试和模拟签名阶段，严格按照有限域 `curve.N` 进行插值与模反运算。
+- 单元测试 [`internal/mpc/protocol/gg18_dkg_test.go`](internal/mpc/protocol/gg18_dkg_test.go) 覆盖 2-of-3 场景，验证 share 数量、自动 NodeID、生成功能及秘密恢复一致性。
+
 ---
 
 ## 3. 通信协议设计
@@ -975,6 +989,26 @@ tls:
 ├── 证书认证：双向TLS
 └── API密钥：应用级认证
 ```
+
+#### 2.4.4 GG18 阈值签名实现（四轮模拟）
+
+- 代码入口：[`internal/mpc/protocol/gg18_sign.go`](internal/mpc/protocol/gg18_sign.go)，以 4 个逻辑轮次模拟 GG18 的承诺、随机数交换、分片计算与聚合，内部 `signingRoundState` 会记录 session 轮次、参与节点、耗时，便于集成到 `session.Manager`。
+- `ThresholdSign` 会从缓存的分片（或自动生成的节点 ID）中挑选满足阈值的 shares，调用 `reconstructSecret` 还原私钥，再通过 `secp256k1/v4/ecdsa` 进行 ECDSA 签名，输出 DER 编码 + R/S。
+- 测试覆盖：[`gg18_sign_test.go`](internal/mpc/protocol/gg18_sign_test.go) 验证成功签名、节点不足时的错误分支以及基准测试。
+- 基准结果（MacBook Air M1, Go `go1.24.6`, `go test -bench=BenchmarkGG18ThresholdSign -benchmem -run='^$' ./internal/mpc/protocol`）：
+
+| Benchmark | ns/op | B/op | allocs/op |
+|-----------|-------|------|-----------|
+| `BenchmarkGG18ThresholdSign-8` | **43,353 ns** | **4,644 B** | **93** |
+| `BenchmarkGG20ThresholdSign-8` | **42,665 ns** | **4,444 B** | **91** |
+
+这些数据（约 0.043ms/签名）作为开发期的基准，用于对比后续 GG20 优化与真实 tss-lib 集成。进度信息可通过 session state 或 round tracker 暴露给监控系统，后续 Phase 1C 将把这些指标汇总进 Prometheus。
+
+#### 2.4.5 GG20 单轮聚合（对比 GG18）
+
+- GG20 在实现上复用 `GG18Protocol` 的 DKG / share 逻辑，`GenerateKeyShare` 直接委托 [`internal/mpc/protocol/gg20.go`](internal/mpc/protocol/gg20.go) 中的包装器，以确保数据格式一致。
+- `ThresholdSign` 通过调用 `thresholdSignInternal` 并传入两轮描述（commit+aggregate、partial+final），从而把状态跟踪浓缩为 2 个阶段，也为后续引入 Identifiable Abort 留好挂点。
+- 基准数据显示，GG20 stub 相比 GG18 在相同输入下略有更低的内存/分配，并可通过减少轮次在真实场景获得更少的网络往返。
 
 ---
 

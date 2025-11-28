@@ -36,7 +36,7 @@ func NewDKGService(
 }
 
 // ExecuteDKG 执行分布式密钥生成
-func (s *DKGService) ExecuteDKG(ctx context.Context, req *CreateKeyRequest) (*protocol.KeyGenResponse, error) {
+func (s *DKGService) ExecuteDKG(ctx context.Context, keyID string, req *CreateKeyRequest) (*protocol.KeyGenResponse, error) {
 	// 1. 发现所有活跃的Participant节点
 	participants, err := s.nodeDiscovery.DiscoverNodes(ctx, node.NodeTypeParticipant, node.NodeStatusActive, req.TotalNodes)
 	if err != nil {
@@ -56,6 +56,7 @@ func (s *DKGService) ExecuteDKG(ctx context.Context, req *CreateKeyRequest) (*pr
 
 	// 3. 准备DKG请求
 	dkgReq := &protocol.KeyGenRequest{
+		KeyID:      keyID,
 		Algorithm:  req.Algorithm,
 		Curve:      req.Curve,
 		Threshold:  req.Threshold,

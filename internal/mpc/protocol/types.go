@@ -32,6 +32,7 @@ type SignatureShare struct {
 
 // KeyGenRequest 密钥生成请求
 type KeyGenRequest struct {
+	KeyID      string
 	Algorithm  string
 	Curve      string
 	Threshold  int
@@ -43,6 +44,37 @@ type KeyGenRequest struct {
 type KeyGenResponse struct {
 	KeyShares map[string]*KeyShare
 	PublicKey *PublicKey
+}
+
+// DKGCommitment 表示某一轮的承诺
+type DKGCommitment struct {
+	SessionID string
+	NodeID    string
+	Round     int
+	Payload   []byte
+	Timestamp int64
+}
+
+// DKGShareMessage 表示节点之间传递的分片信息
+type DKGShareMessage struct {
+	SessionID string
+	FromNode  string
+	ToNode    string
+	Round     int
+	Share     *KeyShare
+	Proof     []byte
+}
+
+// DKGState 描述当前DKG执行状态
+type DKGState struct {
+	SessionID    string
+	KeyID        string
+	Protocol     string
+	CurrentRound int
+	TotalRounds  int
+	Commitments  map[string]*DKGCommitment
+	Shares       map[string]*KeyShare
+	PublicKey    *PublicKey
 }
 
 // SignRequest 签名请求
