@@ -65,8 +65,8 @@ func TestFROSTProtocol_ValidateKeyGenRequest(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "nil request",
-			req:  nil,
+			name:    "nil request",
+			req:     nil,
 			wantErr: true,
 			errMsg:  "key generation request is nil",
 		},
@@ -177,8 +177,8 @@ func TestFROSTProtocol_ValidateSignRequest(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "nil request",
-			req:  nil,
+			name:    "nil request",
+			req:     nil,
 			wantErr: true,
 			errMsg:  "sign request is nil",
 		},
@@ -277,18 +277,18 @@ func TestConvertFROSTKeyData(t *testing.T) {
 		errMsg    string
 	}{
 		{
-			name:    "nil saveData",
-			keyID:   "test-key",
-			saveData: nil,
-			nodeIDs: []string{"node-1", "node-2"},
+			name:      "nil saveData",
+			keyID:     "test-key",
+			saveData:  nil,
+			nodeIDs:   []string{"node-1", "node-2"},
 			wantError: true,
 			errMsg:    "EDDSAPub is nil",
 		},
 		{
-			name:    "empty node IDs",
-			keyID:   "test-key",
-			saveData: &eddsaKeygen.LocalPartySaveData{},
-			nodeIDs: []string{},
+			name:      "empty node IDs",
+			keyID:     "test-key",
+			saveData:  &eddsaKeygen.LocalPartySaveData{},
+			nodeIDs:   []string{},
 			wantError: false, // 应该成功，只是没有 keyShares
 		},
 	}
@@ -774,4 +774,3 @@ func TestFROSTProtocol_CurveSupport(t *testing.T) {
 		})
 	}
 }
-

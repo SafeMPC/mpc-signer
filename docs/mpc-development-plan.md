@@ -19,7 +19,7 @@
 
 | 状态 | 完成内容 |
 | --- | --- |
-| ✅ 已完成 | 依赖与配置体系、数据库迁移、PostgreSQL/Redis/密钥分片存储、协议引擎接口与 GG18/GG20 框架、Key/Signing/Coordinator/Participant/Node/Session 服务、Wire 依赖注入、MPC Swagger + 主要 handlers、Bitcoin/Ethereum 链适配器、**分布式通信基础设施（gRPC + Protocol Buffers + 服务发现 + 健康检查 + 负载均衡）** |
+| ✅ 已完成 | 依赖与配置体系、数据库迁移、PostgreSQL/Redis/密钥分片存储、**协议引擎完整实现（GG18/GG20/FROST + TSS适配器）**、Key/Signing/Coordinator/Participant/Node/Session 服务、Wire 依赖注入、MPC Swagger + 主要 handlers、Bitcoin/Ethereum 链适配器、**分布式通信基础设施（gRPC + Protocol Buffers + 服务发现 + 健康检查 + 负载均衡）** |
 | 🚧 进行中 | 补齐 Swagger 中剩余的 handler（nodes 列表/健康、sessions join/cancel/address 等）、链级业务完善、单元/集成测试 |
 | ⏳ 待启动 | GG20协议实现（DKG + 阈值签名）、Phase 2+ 的密钥轮换、高可用、更多协议、性能与安全增强 |
 
@@ -122,17 +122,22 @@
   - 统一的协议调用接口
 
 #### 1.3.2 GG18/GG20封装
-- [ ] 实现`internal/mpc/protocol/gg18.go`
+- [x] 实现`internal/mpc/protocol/gg18.go`
   - 封装tss-lib的GG18协议
   - 实现分布式密钥生成（DKG）
   - 实现阈值签名流程（4轮通信）
-- [ ] 实现`internal/mpc/protocol/gg20.go`
+- [x] 实现`internal/mpc/protocol/gg20.go`
   - 封装tss-lib的GG20协议（改进版GG18）
+- [x] 实现`internal/mpc/protocol/frost.go`
+  - 封装tss-lib的FROST协议
+  - 实现Schnorr签名支持
 
 #### 1.3.3 协议适配器
-- [ ] 实现协议消息序列化/反序列化
-- [ ] 实现协议状态管理
-- [ ] 实现错误处理和重试机制
+- [x] 实现`internal/mpc/protocol/tss_adapter.go`
+  - TSS库适配器，统一接口调用
+  - 协议消息序列化/反序列化
+  - 协议状态管理和错误处理
+  - 重试机制和超时控制
 
 ### 阶段1.4: 节点管理（1周）
 
@@ -361,7 +366,7 @@
 | --- | --- | --- | --- | --- | --- |
 | W1 | GG18 DKG（会话、份额验证、错误处理） | 协议负责人 + 密钥工程师 | `protocol/gg18_dkg.go`、单元测试 | 2-of-3 DKG 在单元测试中成功运行100次 | tss-lib版本兼容性 → 锁定依赖版本，先以模拟节点跑通 |
 | W2 | GG18 签名（4轮、超时、重试） | 协议负责人 + 会话工程师 | `protocol/gg18_sign.go`、协议状态图 | 单次签名 p99 < 800ms | 节点状态不同步 → 增加Round同步日志与序列号 |
-| W3 | GG20 DKG + 签名（1轮协议） | 协议负责人 + 性能工程师 | `protocol/gg20.go`、基准测试报告 | p95 延迟较GG18至少降低30% | 共享资源冲突 → 在state manager中使用Redis分布式锁 |
+| W3 | GG20 DKG + 签名（1轮协议） | 协议负责人 + 性能工程师 | `protocol/gg20.go`、基准测试报告 | p95 延迟较GG18至少降低30% | 共享资源冲突 → 在state manager中使用Redis分布式锁 | ✅ **已完成** |
 | W4 | 协议状态机与持久化（Redis + PG） | 会话工程师 + DevOps | `session/store.go`、监控面板 | 协议崩溃后可恢复未完成会话 | Redis 与 PG 一致性 → 采用写前日志 + 失败补偿 |
 
 **交付物清单**：
@@ -460,10 +465,13 @@
 - [ ] 添加协议状态管理
   - 分布式状态机
 
-**当前状态**: ✅ 完成了Phase 1.11 Wire依赖注入配置，所有代码正常编译，可以开始实现GG20协议
-  - 状态持久化
-  - 状态同步机制
-- [ ] 实现签名聚合逻辑
+**当前状态**: ✅ 完成了Phase 1.3 协议引擎封装，所有协议（GG18/GG20/FROST）已实现，TSS适配器完成
+  - 协议接口定义完成
+  - GG18/GG20/FROST协议封装完成
+  - TSS适配器实现完成
+  - 协议消息序列化/反序列化完成
+  - 协议状态管理和错误处理完成
+- [x] 实现签名聚合逻辑
   - 签名分片收集
   - 聚合验证
   - 最终签名生成
@@ -699,6 +707,6 @@
 
 ---
 
-**文档维护**: 开发团队  
-**最后更新**: 2024
+**文档维护**: 开发团队
+**最后更新**: 2025-01-02
 

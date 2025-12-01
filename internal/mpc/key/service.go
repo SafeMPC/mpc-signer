@@ -2,9 +2,13 @@ package key
 
 import (
 	"context"
+	"encoding/hex"
+	"math/big"
 	"time"
 
+	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/google/uuid"
+	"github.com/kashguard/go-mpc-wallet/internal/mpc/chain"
 	"github.com/kashguard/go-mpc-wallet/internal/mpc/protocol"
 	"github.com/kashguard/go-mpc-wallet/internal/mpc/storage"
 	"github.com/pkg/errors"
@@ -214,4 +218,69 @@ func (s *Service) ListKeys(ctx context.Context, filter *KeyFilter) ([]*KeyMetada
 	}
 
 	return keys, nil
+}
+
+// GenerateAddress 生成区块链地址
+func (s *Service) GenerateAddress(ctx context.Context, keyID string, chainType string) (string, error) {
+	// 获取密钥信息
+	keyMetadata, err := s.GetKey(ctx, keyID)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get key")
+	}
+
+	// 如果地址已存在且链类型匹配，直接返回
+	if keyMetadata.Address != "" && keyMetadata.ChainType == chainType {
+		return keyMetadata.Address, nil
+	}
+
+	// 解析公钥
+	pubKeyBytes, err := hex.DecodeString(keyMetadata.PublicKey)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to decode public key")
+	}
+
+	// 根据链类型选择适配器
+	var adapter chain.Adapter
+	switch chainType {
+	case "bitcoin", "btc":
+		adapter = chain.NewBitcoinAdapter(&chaincfg.MainNetParams)
+	case "ethereum", "eth", "evm":
+		adapter = chain.NewEthereumAdapter(big.NewInt(1)) // mainnet
+	default:
+		return "", errors.Errorf("unsupported chain type: %s", chainType)
+	}
+
+	// 生成地址
+	address, err := adapter.GenerateAddress(pubKeyBytes)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to generate address")
+	}
+
+	// 更新密钥元数据中的地址
+	now := time.Now()
+	keyMetadata.Address = address
+	keyMetadata.UpdatedAt = now
+
+	storageKey := &storage.KeyMetadata{
+		KeyID:        keyMetadata.KeyID,
+		PublicKey:    keyMetadata.PublicKey,
+		Algorithm:    keyMetadata.Algorithm,
+		Curve:        keyMetadata.Curve,
+		Threshold:    keyMetadata.Threshold,
+		TotalNodes:   keyMetadata.TotalNodes,
+		ChainType:    keyMetadata.ChainType,
+		Address:      keyMetadata.Address,
+		Status:       keyMetadata.Status,
+		Description:  keyMetadata.Description,
+		Tags:         keyMetadata.Tags,
+		CreatedAt:    keyMetadata.CreatedAt,
+		UpdatedAt:    keyMetadata.UpdatedAt,
+		DeletionDate: keyMetadata.DeletionDate,
+	}
+
+	if err := s.metadataStore.UpdateKeyMetadata(ctx, storageKey); err != nil {
+		return "", errors.Wrap(err, "failed to update key metadata with address")
+	}
+
+	return address, nil
 }

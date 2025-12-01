@@ -534,6 +534,8 @@ paths:
       responses:
         "200":
           description: 成功
+          schema:
+            $ref: '#/definitions/generateAddressResponse'
         "401":
           description: Standard error response
           schema:
@@ -837,6 +839,74 @@ paths:
           description: Standard error response
           schema:
             $ref: '#/definitions/publicHttpError'
+  /api/v1/mpc/sign/batch:
+    post:
+      security:
+      - Bearer: []
+      description: 并发执行多个阈值签名请求
+      tags:
+      - MPC Signing
+      summary: 批量阈值签名
+      operationId: postMpcBatchSign
+      parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          $ref: '#/definitions/postBatchSignPayload'
+      responses:
+        "200":
+          description: 批量签名成功
+          schema:
+            $ref: '#/definitions/batchSignResponse'
+        "400":
+          description: Standard error response
+          schema:
+            $ref: '#/definitions/publicHttpError'
+        "401":
+          description: Standard error response
+          schema:
+            $ref: '#/definitions/publicHttpError'
+        "403":
+          description: Standard error response
+          schema:
+            $ref: '#/definitions/publicHttpError'
+        "500":
+          description: Standard error response
+          schema:
+            $ref: '#/definitions/publicHttpError'
+  /api/v1/mpc/verify:
+    post:
+      security:
+      - Bearer: []
+      description: 验证签名的有效性
+      tags:
+      - MPC Signing
+      summary: 验证签名
+      operationId: postMpcVerify
+      parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          $ref: '#/definitions/postVerifyPayload'
+      responses:
+        "200":
+          description: 验证成功
+          schema:
+            $ref: '#/definitions/verifyResponse'
+        "400":
+          description: Standard error response
+          schema:
+            $ref: '#/definitions/publicHttpError'
+        "401":
+          description: Standard error response
+          schema:
+            $ref: '#/definitions/publicHttpError'
+        "500":
+          description: Standard error response
+          schema:
+            $ref: '#/definitions/publicHttpError'
   /api/v1/push/token:
     put:
       security:
@@ -880,6 +950,27 @@ paths:
         "200":
           description: OK
 definitions:
+  batchSignResponse:
+    type: object
+    required:
+    - signatures
+    - total
+    - success
+    - failed
+    properties:
+      failed:
+        type: integer
+        example: 1
+      signatures:
+        type: array
+        items:
+          $ref: '#/definitions/signResponse'
+      success:
+        type: integer
+        example: 9
+      total:
+        type: integer
+        example: 10
   createKeyResponse:
     type: object
     required:
@@ -978,6 +1069,22 @@ definitions:
         maxLength: 500
         minLength: 1
         example: correct horse battery staple
+  generateAddressResponse:
+    type: object
+    required:
+    - key_id
+    - chain_type
+    - address
+    properties:
+      address:
+        type: string
+        example: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
+      chain_type:
+        type: string
+        example: ethereum
+      key_id:
+        type: string
+        example: key-1234567890abcdef
   getKeyResponse:
     type: object
     required:
@@ -1171,6 +1278,36 @@ definitions:
     enum:
     - asc
     - desc
+  postBatchSignPayload:
+    type: object
+    required:
+    - key_id
+    - messages
+    properties:
+      chain_type:
+        type: string
+        example: ethereum
+      key_id:
+        type: string
+        example: key-1234567890abcdef
+      messages:
+        type: array
+        items:
+          type: object
+          required:
+          - message
+          properties:
+            message:
+              type: string
+              format: byte
+              example: SGVsbG8gV29ybGQ=
+            message_type:
+              type: string
+              enum:
+              - transaction
+              - message
+              - raw
+              example: transaction
   postChangePasswordPayload:
     type: object
     required:
@@ -1425,6 +1562,32 @@ definitions:
         - message
         - raw
         example: transaction
+  postVerifyPayload:
+    type: object
+    required:
+    - signature
+    - public_key
+    - message
+    properties:
+      algorithm:
+        type: string
+        enum:
+        - ECDSA
+        - EdDSA
+        example: ECDSA
+      chain_type:
+        type: string
+        example: ethereum
+      message:
+        type: string
+        format: byte
+        example: SGVsbG8gV29ybGQ=
+      public_key:
+        type: string
+        example: pub-0x1234567890abcdef...
+      signature:
+        type: string
+        example: 0x1234567890abcdef...
   publicHttpError:
     type: object
     required:
@@ -1567,6 +1730,24 @@ definitions:
         type: string
         example: sig-0x1234567890abcdef...
       signed_at:
+        type: string
+        format: date-time
+  verifyResponse:
+    type: object
+    required:
+    - valid
+    - public_key
+    - verified_at
+    properties:
+      address:
+        type: string
+        example: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
+      public_key:
+        type: string
+      valid:
+        type: boolean
+        example: true
+      verified_at:
         type: string
         format: date-time
 parameters:

@@ -177,7 +177,7 @@ func TestExecuteEdDSASigning_ContextCancellation(t *testing.T) {
 	sessionID := "test-session-1"
 	keyID := "test-key-1"
 	message := []byte("test message")
-	
+
 	// 创建一个最小的 keyData（需要有效的 Ks）
 	// 注意：由于 eddsaSigning.NewLocalParty 会调用 BuildLocalSaveDataSubset，
 	// 需要有效的 keyData，否则会 panic
@@ -212,7 +212,7 @@ func TestExecuteEdDSASigning_Timeout(t *testing.T) {
 	sessionID := "test-session-1"
 	keyID := "test-key-1"
 	message := []byte("test message")
-	
+
 	// 创建一个最小的 keyData（需要有效的 Ks）
 	keyData := eddsaKeygen.NewLocalPartySaveData(2)
 	keyData.Ks = []*big.Int{
@@ -436,7 +436,7 @@ func TestExecuteEdDSASigning_EmptyNodeIDs(t *testing.T) {
 	sessionID := "test-session-1"
 	keyID := "test-key-1"
 	message := []byte("test message")
-	
+
 	// 创建一个最小的 keyData（即使节点列表为空，也需要有效的 keyData 结构）
 	keyData := eddsaKeygen.NewLocalPartySaveData(0)
 	keyData.Ks = []*big.Int{}
@@ -508,7 +508,7 @@ func TestExecuteEdDSASigning_MessageHandling(t *testing.T) {
 	thisNodeID := "node-1"
 	sessionID := "test-session-1"
 	keyID := "test-key-1"
-	
+
 	// 创建一个最小的 keyData（需要有效的 Ks）
 	keyData := eddsaKeygen.NewLocalPartySaveData(2)
 	keyData.Ks = []*big.Int{
@@ -635,4 +635,3 @@ func TestGG20SigningOptions_Consistency(t *testing.T) {
 	assert.Equal(t, opts1.EnableIdentifiableAbort, opts2.EnableIdentifiableAbort)
 	assert.Equal(t, opts1.ProtocolName, opts2.ProtocolName)
 }
-

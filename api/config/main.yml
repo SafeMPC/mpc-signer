@@ -62,6 +62,16 @@ definitions:
     $ref: "../definitions/mpc.yml#/definitions/CreateSessionResponse"
   getSessionResponse:
     $ref: "../definitions/mpc.yml#/definitions/GetSessionResponse"
+  generateAddressResponse:
+    $ref: "../definitions/mpc.yml#/definitions/GenerateAddressResponse"
+  postBatchSignPayload:
+    $ref: "../definitions/mpc.yml#/definitions/PostBatchSignPayload"
+  batchSignResponse:
+    $ref: "../definitions/mpc.yml#/definitions/BatchSignResponse"
+  postVerifyPayload:
+    $ref: "../definitions/mpc.yml#/definitions/PostVerifyPayload"
+  verifyResponse:
+    $ref: "../definitions/mpc.yml#/definitions/VerifyResponse"
 responses:
   errorResponse:
     description: Standard error response

@@ -41,10 +41,10 @@ func TestValidateKeyGenRequest(t *testing.T) {
 			name: "valid request",
 			req: &KeyGenRequest{
 				Algorithm:  "ECDSA",
-				Curve:     "secp256k1",
-				Threshold: 2,
+				Curve:      "secp256k1",
+				Threshold:  2,
 				TotalNodes: 3,
-				NodeIDs:   []string{"node-1", "node-2", "node-3"},
+				NodeIDs:    []string{"node-1", "node-2", "node-3"},
 			},
 			wantErr: false,
 		},
@@ -64,7 +64,7 @@ func TestValidateKeyGenRequest(t *testing.T) {
 			req: &KeyGenRequest{
 				Algorithm:  "ECDSA",
 				Curve:      "P256",
-				Threshold: 2,
+				Threshold:  2,
 				TotalNodes: 3,
 			},
 			wantErr: true,
@@ -74,8 +74,8 @@ func TestValidateKeyGenRequest(t *testing.T) {
 			name: "threshold too low",
 			req: &KeyGenRequest{
 				Algorithm:  "ECDSA",
-				Curve:     "secp256k1",
-				Threshold: 1,
+				Curve:      "secp256k1",
+				Threshold:  1,
 				TotalNodes: 3,
 			},
 			wantErr: true,
@@ -85,8 +85,8 @@ func TestValidateKeyGenRequest(t *testing.T) {
 			name: "total nodes less than threshold",
 			req: &KeyGenRequest{
 				Algorithm:  "ECDSA",
-				Curve:     "secp256k1",
-				Threshold: 3,
+				Curve:      "secp256k1",
+				Threshold:  3,
 				TotalNodes: 2,
 			},
 			wantErr: true,
@@ -479,4 +479,3 @@ func TestGG18Protocol_DefaultProtocol(t *testing.T) {
 
 	assert.Equal(t, "gg18", protocol.DefaultProtocol())
 }
-

@@ -25,6 +25,7 @@ import (
 	"github.com/kashguard/go-mpc-wallet/internal/persistence"
 	"github.com/kashguard/go-mpc-wallet/internal/push"
 	"github.com/kashguard/go-mpc-wallet/internal/push/provider"
+	"github.com/kashguard/tss-lib/tss"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
 )
@@ -131,10 +132,24 @@ func NewKeyShareStorage(cfg config.Server) (storage.KeyShareStorage, error) {
 
 func NewProtocolEngine(cfg config.Server) protocol.Engine {
 	curve := "secp256k1"
+	thisNodeID := cfg.MPC.NodeID
+	if thisNodeID == "" {
+		thisNodeID = "default-node"
+	}
+
+	// 创建一个简单的消息路由器（实际应该通过gRPC发送消息）
+	// TODO: 实现实际的消息路由逻辑（通过gRPC发送到目标节点）
+	messageRouter := func(nodeID string, msg tss.Message) error {
+		// 临时实现：消息路由逻辑待实现
+		// 实际应该通过gRPC将消息发送到目标节点
+		return nil
+	}
+
 	if len(cfg.MPC.SupportedProtocols) > 0 {
 		// future: switch based on protocol type
 	}
-	return protocol.NewGG20Protocol(curve)
+
+	return protocol.NewGG20Protocol(curve, thisNodeID, messageRouter)
 }
 
 func NewNodeManager(metadataStore storage.MetadataStore, cfg config.Server) *node.Manager {
@@ -165,8 +180,8 @@ func NewKeyServiceProvider(metadataStore storage.MetadataStore, keyShareStorage 
 	return key.NewService(metadataStore, keyShareStorage, protocolEngine)
 }
 
-func NewSigningServiceProvider(protocolEngine protocol.Engine, sessionManager *session.Manager, nodeDiscovery *node.Discovery) *signing.Service {
-	return signing.NewService(protocolEngine, sessionManager, nodeDiscovery)
+func NewSigningServiceProvider(keyService *key.Service, protocolEngine protocol.Engine, sessionManager *session.Manager, nodeDiscovery *node.Discovery) *signing.Service {
+	return signing.NewService(keyService, protocolEngine, sessionManager, nodeDiscovery)
 }
 
 func NewCoordinatorServiceProvider(

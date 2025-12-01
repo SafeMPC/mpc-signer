@@ -134,6 +134,8 @@ paths:
       responses:
         "200":
           description: 成功
+          schema:
+            $ref: "#/definitions/generateAddressResponse"
         "404":
           $ref: "#/responses/errorResponse"
         "401":
@@ -166,6 +168,62 @@ paths:
         "401":
           $ref: "#/responses/errorResponse"
         "403":
+          $ref: "#/responses/errorResponse"
+        "500":
+          $ref: "#/responses/errorResponse"
+
+  /api/v1/mpc/sign/batch:
+    post:
+      operationId: postMpcBatchSign
+      summary: 批量阈值签名
+      description: 并发执行多个阈值签名请求
+      tags:
+        - MPC Signing
+      security:
+        - Bearer: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/postBatchSignPayload"
+      responses:
+        "200":
+          description: 批量签名成功
+          schema:
+            $ref: "#/definitions/batchSignResponse"
+        "400":
+          $ref: "#/responses/errorResponse"
+        "401":
+          $ref: "#/responses/errorResponse"
+        "403":
+          $ref: "#/responses/errorResponse"
+        "500":
+          $ref: "#/responses/errorResponse"
+
+  /api/v1/mpc/verify:
+    post:
+      operationId: postMpcVerify
+      summary: 验证签名
+      description: 验证签名的有效性
+      tags:
+        - MPC Signing
+      security:
+        - Bearer: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/postVerifyPayload"
+      responses:
+        "200":
+          description: 验证成功
+          schema:
+            $ref: "#/definitions/verifyResponse"
+        "400":
+          $ref: "#/responses/errorResponse"
+        "401":
           $ref: "#/responses/errorResponse"
         "500":
           $ref: "#/responses/errorResponse"

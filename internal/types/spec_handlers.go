@@ -66,6 +66,8 @@ func (o *SwaggerSpec) initHandlerCache() {
 	o.Handlers["POST"]["/api/v1/mpc/sessions"] = true
 	o.Handlers["POST"]["/api/v1/mpc/keys/{keyId}/address"] = true
 	o.Handlers["POST"]["/api/v1/mpc/sessions/{sessionId}/join"] = true
+	o.Handlers["POST"]["/api/v1/mpc/sign/batch"] = true
 	o.Handlers["POST"]["/api/v1/mpc/sign"] = true
+	o.Handlers["POST"]["/api/v1/mpc/verify"] = true
 	o.Handlers["POST"]["/api/v1/mpc/nodes"] = true
 }
