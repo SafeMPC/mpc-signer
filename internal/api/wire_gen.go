@@ -53,21 +53,25 @@ func InitNewServer(server config.Server) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	engine := NewProtocolEngine(server)
+	manager := NewNodeManager(metadataStore, server)
+	grpcClient, err := NewMPCGRPCClient(server, manager)
+	if err != nil {
+		return nil, err
+	}
+	engine := NewProtocolEngine(server, grpcClient)
 	keyService := NewKeyServiceProvider(metadataStore, keyShareStorage, engine)
 	client, err := NewRedisClient(server)
 	if err != nil {
 		return nil, err
 	}
 	sessionStore := NewSessionStore(client)
-	manager := NewSessionManager(metadataStore, sessionStore, server)
-	nodeManager := NewNodeManager(metadataStore, server)
-	discovery := NewNodeDiscovery(nodeManager)
-	signingService := NewSigningServiceProvider(keyService, engine, manager, discovery)
-	coordinatorService := NewCoordinatorServiceProvider(metadataStore, keyService, signingService, manager, nodeManager, discovery, engine)
+	sessionManager := NewSessionManager(metadataStore, sessionStore, server)
+	discovery := NewNodeDiscovery(manager)
+	signingService := NewSigningServiceProvider(keyService, engine, sessionManager, discovery)
+	coordinatorService := NewCoordinatorServiceProvider(metadataStore, keyService, signingService, sessionManager, manager, discovery, engine)
 	participantService := NewParticipantServiceProvider(server, keyShareStorage, engine)
-	registry := NewNodeRegistry(nodeManager)
-	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService, keyService, signingService, coordinatorService, participantService, nodeManager, registry, discovery, manager)
+	registry := NewNodeRegistry(manager)
+	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService, keyService, signingService, coordinatorService, participantService, manager, registry, discovery, sessionManager)
 	return apiServer, nil
 }
 
@@ -98,21 +102,25 @@ func InitNewServerWithDB(server config.Server, db *sql.DB, t ...*testing.T) (*Se
 	if err != nil {
 		return nil, err
 	}
-	engine := NewProtocolEngine(server)
+	manager := NewNodeManager(metadataStore, server)
+	grpcClient, err := NewMPCGRPCClient(server, manager)
+	if err != nil {
+		return nil, err
+	}
+	engine := NewProtocolEngine(server, grpcClient)
 	keyService := NewKeyServiceProvider(metadataStore, keyShareStorage, engine)
 	client, err := NewRedisClient(server)
 	if err != nil {
 		return nil, err
 	}
 	sessionStore := NewSessionStore(client)
-	manager := NewSessionManager(metadataStore, sessionStore, server)
-	nodeManager := NewNodeManager(metadataStore, server)
-	discovery := NewNodeDiscovery(nodeManager)
-	signingService := NewSigningServiceProvider(keyService, engine, manager, discovery)
-	coordinatorService := NewCoordinatorServiceProvider(metadataStore, keyService, signingService, manager, nodeManager, discovery, engine)
+	sessionManager := NewSessionManager(metadataStore, sessionStore, server)
+	discovery := NewNodeDiscovery(manager)
+	signingService := NewSigningServiceProvider(keyService, engine, sessionManager, discovery)
+	coordinatorService := NewCoordinatorServiceProvider(metadataStore, keyService, signingService, sessionManager, manager, discovery, engine)
 	participantService := NewParticipantServiceProvider(server, keyShareStorage, engine)
-	registry := NewNodeRegistry(nodeManager)
-	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService, keyService, signingService, coordinatorService, participantService, nodeManager, registry, discovery, manager)
+	registry := NewNodeRegistry(manager)
+	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService, keyService, signingService, coordinatorService, participantService, manager, registry, discovery, sessionManager)
 	return apiServer, nil
 }
 
@@ -137,11 +145,14 @@ var mpcServiceSet = wire.NewSet(
 	NewRedisClient,
 	NewSessionStore,
 	NewKeyShareStorage,
-	NewProtocolEngine,
 	NewNodeManager,
 	NewNodeRegistry,
 	NewNodeDiscovery,
 	NewSessionManager,
+
+	NewMPCGRPCClient,
+	NewMPCGRPCServer,
+	NewProtocolEngine,
 	NewKeyServiceProvider,
 	NewSigningServiceProvider,
 	NewCoordinatorServiceProvider,

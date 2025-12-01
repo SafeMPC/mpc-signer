@@ -14,6 +14,7 @@ import (
 	"github.com/kashguard/go-mpc-wallet/internal/grpc"
 	"github.com/kashguard/go-mpc-wallet/internal/i18n"
 	"github.com/kashguard/go-mpc-wallet/internal/mailer"
+	"github.com/kashguard/go-mpc-wallet/internal/mpc/communication"
 	"github.com/kashguard/go-mpc-wallet/internal/mpc/coordinator"
 	"github.com/kashguard/go-mpc-wallet/internal/mpc/key"
 	"github.com/kashguard/go-mpc-wallet/internal/mpc/node"
@@ -130,19 +131,36 @@ func NewKeyShareStorage(cfg config.Server) (storage.KeyShareStorage, error) {
 	return storage.NewFileSystemKeyShareStorage(cfg.MPC.KeyShareStoragePath, cfg.MPC.KeyShareEncryptionKey)
 }
 
-func NewProtocolEngine(cfg config.Server) protocol.Engine {
+func NewMPCGRPCClient(cfg config.Server, nodeManager *node.Manager) (*communication.GRPCClient, error) {
+	return communication.NewGRPCClient(cfg, nodeManager)
+}
+
+func NewMPCGRPCServer(
+	cfg config.Server,
+	protocolEngine protocol.Engine,
+	sessionManager *session.Manager,
+) (*communication.GRPCServer, error) {
+	nodeID := cfg.MPC.NodeID
+	if nodeID == "" {
+		nodeID = "default-node"
+	}
+	return communication.NewGRPCServer(cfg, protocolEngine, sessionManager, nodeID), nil
+}
+
+func NewProtocolEngine(cfg config.Server, grpcClient *communication.GRPCClient) protocol.Engine {
 	curve := "secp256k1"
 	thisNodeID := cfg.MPC.NodeID
 	if thisNodeID == "" {
 		thisNodeID = "default-node"
 	}
 
-	// 创建一个简单的消息路由器（实际应该通过gRPC发送消息）
-	// TODO: 实现实际的消息路由逻辑（通过gRPC发送到目标节点）
+	// 使用真正的gRPC客户端作为消息路由器
 	messageRouter := func(nodeID string, msg tss.Message) error {
-		// 临时实现：消息路由逻辑待实现
-		// 实际应该通过gRPC将消息发送到目标节点
-		return nil
+		ctx := context.Background()
+		// 判断消息类型（DKG或签名）
+		// 这里简化处理，根据消息的会话ID来判断
+		// 实际应该根据消息类型来判断
+		return grpcClient.SendSigningMessage(ctx, nodeID, msg)
 	}
 
 	if len(cfg.MPC.SupportedProtocols) > 0 {

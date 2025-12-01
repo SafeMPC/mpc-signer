@@ -29,26 +29,15 @@ func NewService(
 }
 
 // ParticipateKeyGen 参与密钥生成
-func (s *Service) ParticipateKeyGen(ctx context.Context, sessionID string) (*KeyShare, error) {
-	// TODO: 实现参与DKG协议
-	// 1. 接收DKG请求
-	// 2. 生成随机分片
-	// 3. 与其他节点交换分片
-	// 4. 验证和聚合分片
-	// 5. 返回最终分片
-
-	return nil, errors.New("key generation participation not yet implemented")
+func (s *Service) ParticipateKeyGen(ctx context.Context, sessionID string, req *protocol.KeyGenRequest) (*KeyShare, error) {
+	participant := NewProtocolParticipant(s)
+	return participant.ParticipateKeyGen(ctx, sessionID, req)
 }
 
 // ParticipateSign 参与签名
-func (s *Service) ParticipateSign(ctx context.Context, sessionID string, msg []byte) (*SignatureShare, error) {
-	// TODO: 实现参与签名协议
-	// 1. 获取密钥分片
-	// 2. 执行签名协议（GG18/GG20）
-	// 3. 生成签名分片
-	// 4. 返回签名分片
-
-	return nil, errors.New("signing participation not yet implemented")
+func (s *Service) ParticipateSign(ctx context.Context, sessionID string, keyID string, msg []byte, nodeIDs []string) (*SignatureShare, error) {
+	participant := NewProtocolParticipant(s)
+	return participant.ParticipateSign(ctx, sessionID, keyID, msg, nodeIDs)
 }
 
 // StoreKeyShare 存储密钥分片

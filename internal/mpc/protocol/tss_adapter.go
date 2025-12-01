@@ -36,17 +36,23 @@ type tssPartyManager struct {
 
 	// 消息路由：从 tss-lib 消息到节点通信
 	messageRouter func(nodeID string, msg tss.Message) error
+
+	// 接收到的消息队列（用于处理来自其他节点的消息）
+	incomingKeygenMessages  map[string]chan []byte
+	incomingSigningMessages map[string]chan []byte
 }
 
 func newTSSPartyManager(messageRouter func(nodeID string, msg tss.Message) error) *tssPartyManager {
 	return &tssPartyManager{
-		nodeIDToPartyID:    make(map[string]*tss.PartyID),
-		partyIDToNodeID:    make(map[string]string),
-		activeKeygen:       make(map[string]*keygen.LocalParty),
-		activeSigning:      make(map[string]*signing.LocalParty),
-		activeEdDSAKeygen:  make(map[string]*eddsaKeygen.LocalParty),
-		activeEdDSASigning: make(map[string]*eddsaSigning.LocalParty),
-		messageRouter:      messageRouter,
+		nodeIDToPartyID:         make(map[string]*tss.PartyID),
+		partyIDToNodeID:         make(map[string]string),
+		activeKeygen:            make(map[string]*keygen.LocalParty),
+		activeSigning:           make(map[string]*signing.LocalParty),
+		activeEdDSAKeygen:       make(map[string]*eddsaKeygen.LocalParty),
+		activeEdDSASigning:      make(map[string]*eddsaSigning.LocalParty),
+		messageRouter:           messageRouter,
+		incomingKeygenMessages:  make(map[string]chan []byte),
+		incomingSigningMessages: make(map[string]chan []byte),
 	}
 }
 
@@ -316,6 +322,74 @@ func (m *tssPartyManager) executeSigning(
 			}
 			return nil, errors.Wrapf(err, "%s signing error", opts.ProtocolName)
 		}
+	}
+}
+
+// ProcessIncomingKeygenMessage 处理接收到的DKG消息
+// 注意：tss-lib的消息处理机制是通过消息通道实现的
+// 这里我们使用消息队列来暂存接收到的消息，然后在party处理时从队列中读取
+// TODO: 需要根据tss-lib的实际API来实现完整的消息处理逻辑
+func (m *tssPartyManager) ProcessIncomingKeygenMessage(
+	ctx context.Context,
+	sessionID string,
+	fromNodeID string,
+	msgBytes []byte,
+) error {
+	m.mu.RLock()
+	msgCh, ok := m.incomingKeygenMessages[sessionID]
+	m.mu.RUnlock()
+
+	if !ok {
+		// 如果消息队列不存在，创建一个新的
+		m.mu.Lock()
+		msgCh = make(chan []byte, 100) // 缓冲100条消息
+		m.incomingKeygenMessages[sessionID] = msgCh
+		m.mu.Unlock()
+	}
+
+	// 将消息发送到队列
+	select {
+	case msgCh <- msgBytes:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		// 队列已满，返回错误
+		return errors.Errorf("keygen message queue full for session %s", sessionID)
+	}
+}
+
+// ProcessIncomingSigningMessage 处理接收到的签名消息
+// 注意：tss-lib的消息处理机制是通过消息通道实现的
+// 这里我们使用消息队列来暂存接收到的消息，然后在party处理时从队列中读取
+// TODO: 需要根据tss-lib的实际API来实现完整的消息处理逻辑
+func (m *tssPartyManager) ProcessIncomingSigningMessage(
+	ctx context.Context,
+	sessionID string,
+	fromNodeID string,
+	msgBytes []byte,
+) error {
+	m.mu.RLock()
+	msgCh, ok := m.incomingSigningMessages[sessionID]
+	m.mu.RUnlock()
+
+	if !ok {
+		// 如果消息队列不存在，创建一个新的
+		m.mu.Lock()
+		msgCh = make(chan []byte, 100) // 缓冲100条消息
+		m.incomingSigningMessages[sessionID] = msgCh
+		m.mu.Unlock()
+	}
+
+	// 将消息发送到队列
+	select {
+	case msgCh <- msgBytes:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		// 队列已满，返回错误
+		return errors.Errorf("signing message queue full for session %s", sessionID)
 	}
 }
 

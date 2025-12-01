@@ -19,6 +19,12 @@ type Engine interface {
 	// 密钥轮换
 	RotateKey(ctx context.Context, keyID string) error
 
+	// 处理接收到的DKG消息
+	ProcessIncomingKeygenMessage(ctx context.Context, sessionID string, fromNodeID string, msgBytes []byte) error
+
+	// 处理接收到的签名消息
+	ProcessIncomingSigningMessage(ctx context.Context, sessionID string, fromNodeID string, msgBytes []byte) error
+
 	// 支持的协议
 	SupportedProtocols() []string
 	DefaultProtocol() string

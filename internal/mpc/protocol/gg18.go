@@ -253,6 +253,16 @@ func (p *GG18Protocol) RotateKey(ctx context.Context, keyID string) error {
 	return errors.New("GG18 key rotation not yet implemented")
 }
 
+// ProcessIncomingKeygenMessage 处理接收到的DKG消息
+func (p *GG18Protocol) ProcessIncomingKeygenMessage(ctx context.Context, sessionID string, fromNodeID string, msgBytes []byte) error {
+	return p.partyManager.ProcessIncomingKeygenMessage(ctx, sessionID, fromNodeID, msgBytes)
+}
+
+// ProcessIncomingSigningMessage 处理接收到的签名消息
+func (p *GG18Protocol) ProcessIncomingSigningMessage(ctx context.Context, sessionID string, fromNodeID string, msgBytes []byte) error {
+	return p.partyManager.ProcessIncomingSigningMessage(ctx, sessionID, fromNodeID, msgBytes)
+}
+
 // SupportedProtocols 支持的协议
 func (p *GG18Protocol) SupportedProtocols() []string {
 	return []string{"gg18"}
