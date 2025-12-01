@@ -19,9 +19,9 @@
 
 | 状态 | 完成内容 |
 | --- | --- |
-| ✅ 已完成 | 依赖与配置体系、数据库迁移、PostgreSQL/Redis/密钥分片存储、**协议引擎完整实现（GG18/GG20/FROST + TSS适配器）**、Key/Signing/Coordinator/Participant/Node/Session 服务、Wire 依赖注入、MPC Swagger + 主要 handlers、Bitcoin/Ethereum 链适配器、**分布式通信基础设施（gRPC + Protocol Buffers + 服务发现 + 健康检查 + 负载均衡）** |
-| 🚧 进行中 | 补齐 Swagger 中剩余的 handler（nodes 列表/健康、sessions join/cancel/address 等）、链级业务完善、单元/集成测试 |
-| ⏳ 待启动 | GG20协议实现（DKG + 阈值签名）、Phase 2+ 的密钥轮换、高可用、更多协议、性能与安全增强 |
+| ✅ 已完成 | 依赖与配置体系、数据库迁移、PostgreSQL/Redis/密钥分片存储、**协议引擎完整实现（GG18/GG20/FROST + TSS适配器）**、Key/Signing/Coordinator/Participant/Node/Session 服务、Wire 依赖注入、**MPC Swagger + 所有 handlers（16个）**、Bitcoin/Ethereum 链适配器、**分布式通信基础设施（gRPC + Protocol Buffers + 服务发现 + 健康检查 + 负载均衡）**、**密钥地址生成、批量签名、签名验证功能** |
+| 🚧 进行中 | 单元/集成测试、端到端测试 |
+| ⏳ 待启动 | Phase 2+ 的密钥轮换、高可用、更多协议、性能与安全增强 |
 
 **推荐实施顺序**：
 1. 先实现Phase 1 MVP（2-of-3阈值签名、GG18/GG20、BTC/ETH支持）
@@ -167,6 +167,7 @@
   - 密钥查询
   - 密钥删除
   - 密钥列表
+  - 地址生成（GenerateAddress）
 
 #### 1.5.2 分布式密钥生成（DKG）
 - [ ] 实现`internal/mpc/key/dkg.go`
@@ -190,7 +191,7 @@
   - 会话超时处理
 
 #### 1.6.2 会话存储
-- [ ] 实现`internal/mpc/session/store.go`
+- [x] 实现`internal/mpc/session/store.go`
   - Redis会话缓存
   - 会话持久化（PostgreSQL）
   - 会话恢复机制
@@ -198,13 +199,13 @@
 ### 阶段1.7: 阈值签名服务（2周）
 
 #### 1.7.1 签名服务
-- [ ] 实现`internal/mpc/signing/service.go`
+- [x] 实现`internal/mpc/signing/service.go`
   - 阈值签名接口
   - 批量签名接口
   - 签名验证接口
 
 #### 1.7.2 阈值签名实现
-- [ ] 实现`internal/mpc/signing/threshold_sign.go`
+- [x] 实现`internal/mpc/signing/threshold_sign.go`
   - 创建签名会话
   - 选择参与节点（达到阈值）
   - 执行签名协议（GG18/GG20）
@@ -212,7 +213,7 @@
   - 验证最终签名
 
 #### 1.7.3 批量签名
-- [ ] 实现`internal/mpc/signing/batch_sign.go`
+- [x] 实现批量签名功能（在service.go中）
   - 批量签名优化
   - 并发签名处理
 
@@ -276,32 +277,31 @@
 - [x] 运行`make swagger`生成Go类型
 
 #### 1.10.2 密钥管理Handlers
-- [ ] 实现`internal/api/handlers/mpc/keys/post_create_key.go`
-- [ ] 实现`internal/api/handlers/mpc/keys/get_key.go`
-- [ ] 实现`internal/api/handlers/mpc/keys/delete_key.go`
-- [ ] 实现`internal/api/handlers/mpc/keys/get_list_keys.go`
-- [ ] 实现`internal/api/handlers/mpc/keys/post_generate_address.go`
+- [x] 实现`internal/api/handlers/mpc/keys/post_create_key.go`
+- [x] 实现`internal/api/handlers/mpc/keys/get_key.go`
+- [x] 实现`internal/api/handlers/mpc/keys/delete_key.go`
+- [x] 实现`internal/api/handlers/mpc/keys/get_list_keys.go`
+- [x] 实现`internal/api/handlers/mpc/keys/post_generate_address.go`
 
 #### 1.10.3 签名服务Handlers
-- [ ] 实现`internal/api/handlers/mpc/signing/post_sign.go`
-- [ ] 实现`internal/api/handlers/mpc/signing/post_batch_sign.go`
-- [ ] 实现`internal/api/handlers/mpc/signing/post_verify.go`
+- [x] 实现`internal/api/handlers/mpc/signing/post_sign.go`
+- [x] 实现`internal/api/handlers/mpc/signing/post_batch_sign.go`
+- [x] 实现`internal/api/handlers/mpc/signing/post_verify.go`
 
 #### 1.10.4 节点管理Handlers
-- [ ] 实现`internal/api/handlers/mpc/nodes/post_register_node.go`
-- [ ] 实现`internal/api/handlers/mpc/nodes/get_node.go`
-- [ ] 实现`internal/api/handlers/mpc/nodes/get_list_nodes.go`
-- [ ] 实现`internal/api/handlers/mpc/nodes/get_node_health.go`
+- [x] 实现`internal/api/handlers/mpc/nodes/post_register_node.go`
+- [x] 实现`internal/api/handlers/mpc/nodes/get_node.go`
+- [x] 实现`internal/api/handlers/mpc/nodes/get_list_nodes.go`
+- [x] 实现`internal/api/handlers/mpc/nodes/get_node_health.go`
 
 #### 1.10.5 会话管理Handlers
-- [ ] 实现`internal/api/handlers/mpc/sessions/post_create_session.go`
-- [ ] 实现`internal/api/handlers/mpc/sessions/post_join_session.go`
-- [ ] 实现`internal/api/handlers/mpc/sessions/get_session.go`
-- [ ] 实现`internal/api/handlers/mpc/sessions/post_cancel_session.go`
+- [x] 实现`internal/api/handlers/mpc/sessions/post_create_session.go`
+- [x] 实现`internal/api/handlers/mpc/sessions/post_join_session.go`
+- [x] 实现`internal/api/handlers/mpc/sessions/get_session.go`
+- [x] 实现`internal/api/handlers/mpc/sessions/post_cancel_session.go`
 
 #### 1.10.6 路由注册
-- [ ] 更新`internal/api/router/router.go`添加MPC路由
-- [ ] 更新`internal/api/handlers/handlers.go`注册所有MPC路由
+- [x] 更新`internal/api/handlers/handlers.go`注册所有MPC路由
 
 ### 阶段1.11: Wire依赖注入（0.5周）
 
@@ -709,4 +709,48 @@
 
 **文档维护**: 开发团队
 **最后更新**: 2025-01-02
+
+## 最新更新（2025-01-02）
+
+### 已完成功能
+
+#### 服务层完善
+- ✅ `key.Service.GenerateAddress` - 密钥地址生成功能（支持Bitcoin和Ethereum）
+- ✅ `signing.Service.ThresholdSign` - 完善阈值签名流程
+- ✅ `signing.Service.BatchSign` - 批量签名功能（并发处理）
+- ✅ `signing.Service.Verify` - 签名验证功能
+
+#### API Handlers（新增8个）
+- ✅ `keys/post_generate_address.go` - 地址生成
+- ✅ `nodes/get_list_nodes.go` - 节点列表
+- ✅ `nodes/get_node_health.go` - 节点健康检查
+- ✅ `sessions/post_join_session.go` - 加入会话
+- ✅ `sessions/get_session.go` - 获取会话
+- ✅ `sessions/post_cancel_session.go` - 取消会话
+- ✅ `signing/post_batch_sign.go` - 批量签名
+- ✅ `signing/post_verify.go` - 签名验证
+
+#### API定义完善
+- ✅ 批量签名API定义（PostBatchSignPayload, BatchSignResponse）
+- ✅ 签名验证API定义（PostVerifyPayload, VerifyResponse）
+- ✅ 地址生成响应定义（GenerateAddressResponse）
+- ✅ 所有定义已在`api/config/main.yml`中注册
+
+#### 路由注册
+- ✅ 所有MPC路由已在`handlers.go`中注册
+
+### 当前状态
+
+**Phase 1 MVP核心功能已基本完成**：
+- ✅ 所有API handlers实现完成（16个）
+- ✅ 服务层核心功能完整
+- ✅ Swagger API定义完整
+- ✅ 路由注册完成
+- ✅ 协议引擎完整实现
+
+**剩余工作**：
+- 单元测试和集成测试
+- 端到端测试
+- 性能优化
+- 生产环境部署准备
 
