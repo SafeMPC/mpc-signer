@@ -103,7 +103,7 @@ sequenceDiagram
     participant Server as MPC服务器
     participant Cloud as 云端服务
 
-    User->>APP: 1. 打开APP，点击"创建钱包"
+    User->>APP: 1. 打开APP，点击创建钱包
     APP->>User: 2. 提示设置钱包名称
     User->>APP: 3. 输入钱包名称
     APP->>User: 4. 提示进行生物认证
@@ -162,12 +162,12 @@ sequenceDiagram
     participant Cloud as 云端服务
     participant Blockchain as 区块链网络
 
-    User->>APP: 1. 选择钱包，点击"转账"
+    User->>APP: 1. 选择钱包，点击转账
     APP->>User: 2. 显示转账界面
     User->>APP: 3. 输入收款地址
     User->>APP: 4. 输入转账金额
     User->>APP: 5. 选择代币类型
-    User->>APP: 6. 点击"确认转账"
+    User->>APP: 6. 点击确认转账
     APP->>User: 7. 显示交易详情确认
     User->>APP: 8. 确认交易信息
     APP->>User: 9. 提示进行生物认证
@@ -231,7 +231,7 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     A[用户打开APP] --> B[选择钱包]
-    B --> C[点击"接收"]
+    B --> C[点击接收]
     C --> D[显示钱包地址]
     D --> E[显示二维码]
     E --> F{用户选择分享方式}
@@ -286,8 +286,8 @@ sequenceDiagram
     participant Server as MPC服务器
 
     User->>APP: 1. 进入钱包设置
-    APP->>User: 2. 显示"备份钱包"选项
-    User->>APP: 3. 点击"备份钱包"
+    APP->>User: 2. 显示备份钱包选项
+    User->>APP: 3. 点击备份钱包
     APP->>User: 4. 提示进行生物认证
     User->>APP: 5. 使用FaceID/TouchID
     APP->>Server: 6. 请求备份包
@@ -306,7 +306,7 @@ sequenceDiagram
     participant APP as 移动APP
     participant Server as MPC服务器
 
-    User->>APP: 1. 打开APP，点击"恢复钱包"
+    User->>APP: 1. 打开APP，点击恢复钱包
     APP->>User: 2. 提示输入备份信息
     User->>APP: 3. 输入助记词或上传备份文件
     APP->>User: 4. 提示进行生物认证
@@ -357,13 +357,13 @@ sequenceDiagram
     participant Team as 团队成员
 
     Admin->>Web: 1. 登录Web控制台
-    Web->>Admin: 2. 显示"创建团队钱包"
+    Web->>Admin: 2. 显示创建团队钱包
     Admin->>Web: 3. 输入钱包名称和描述
     Admin->>Web: 4. 选择支持的区块链
     Admin->>Web: 5. 设置多签策略
     Admin->>Web: 6. 添加团队成员
     Admin->>Web: 7. 分配角色权限
-    Admin->>Web: 8. 点击"创建钱包"
+    Admin->>Web: 8. 点击创建钱包
     Web->>Server: 9. 提交创建请求
     Server->>Server: 10. 创建钱包和密钥分片
     Server->>Team: 11. 发送邀请通知
@@ -450,11 +450,11 @@ sequenceDiagram
     Server->>M1: 6. 推送审批通知
     Server->>M2: 7. 推送审批通知
     M1->>APP: 8. 查看交易详情
-    M1->>APP: 9. 点击"批准"
+    M1->>APP: 9. 点击批准
     M1->>APP: 10. 生物认证
     APP->>Server: 11. 提交批准
     M2->>APP: 12. 查看交易详情
-    M2->>APP: 13. 点击"批准"
+    M2->>APP: 13. 点击批准
     M2->>APP: 14. 生物认证
     APP->>Server: 15. 提交批准
     Server->>Server: 16. 达到审批阈值<br/>启动MPC签名
@@ -623,12 +623,12 @@ sequenceDiagram
 
     Admin->>Web: 1. 进入团队管理
     Web->>Admin: 2. 显示成员列表
-    Admin->>Web: 3. 点击"添加成员"
+    Admin->>Web: 3. 点击添加成员
     Web->>Admin: 4. 显示添加表单
     Admin->>Web: 5. 输入成员邮箱
     Admin->>Web: 6. 选择角色权限
     Admin->>Web: 7. 设置审批权限
-    Admin->>Web: 8. 点击"添加"
+    Admin->>Web: 8. 点击添加
     Web->>Server: 9. 提交添加请求
     Server->>Server: 10. 创建成员账户
     Server->>NewMember: 11. 发送邀请邮件
