@@ -16,6 +16,7 @@ import (
 	eddsaSigning "github.com/kashguard/tss-lib/eddsa/signing"
 	"github.com/kashguard/tss-lib/tss"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 // tssPartyManager 管理 tss-lib 的 Party 实例和消息路由（通用适配层，供 GG18/GG20/FROST 使用）
@@ -39,11 +40,18 @@ type tssPartyManager struct {
 	messageRouter func(sessionID string, nodeID string, msg tss.Message) error
 
 	// 接收到的消息队列（用于处理来自其他节点的消息）
-	incomingKeygenMessages  map[string]chan []byte
-	incomingSigningMessages map[string]chan []byte
+	// 消息包含字节数据和发送方节点ID
+	incomingKeygenMessages  map[string]chan *incomingMessage
+	incomingSigningMessages map[string]chan *incomingMessage
 
 	// 会话ID映射：keyID/sessionID -> sessionID（用于消息路由时获取会话ID）
 	sessionIDMap map[string]string
+}
+
+// incomingMessage 接收到的消息（包含消息字节和发送方信息）
+type incomingMessage struct {
+	msgBytes   []byte
+	fromNodeID string
 }
 
 func newTSSPartyManager(messageRouter func(sessionID string, nodeID string, msg tss.Message) error) *tssPartyManager {
@@ -55,8 +63,8 @@ func newTSSPartyManager(messageRouter func(sessionID string, nodeID string, msg 
 		activeEdDSAKeygen:       make(map[string]*eddsaKeygen.LocalParty),
 		activeEdDSASigning:      make(map[string]*eddsaSigning.LocalParty),
 		messageRouter:           messageRouter,
-		incomingKeygenMessages:  make(map[string]chan []byte),
-		incomingSigningMessages: make(map[string]chan []byte),
+		incomingKeygenMessages:  make(map[string]chan *incomingMessage),
+		incomingSigningMessages: make(map[string]chan *incomingMessage),
 		sessionIDMap:            make(map[string]string),
 	}
 }
@@ -92,7 +100,12 @@ func (m *tssPartyManager) getPartyIDs(nodeIDs []string) (tss.SortedPartyIDs, err
 	for _, nodeID := range nodeIDs {
 		partyID, ok := m.nodeIDToPartyID[nodeID]
 		if !ok {
-			return nil, errors.Errorf("party ID not found for node: %s", nodeID)
+			// 添加更多调试信息
+			availableNodeIDs := make([]string, 0, len(m.nodeIDToPartyID))
+			for nid := range m.nodeIDToPartyID {
+				availableNodeIDs = append(availableNodeIDs, nid)
+			}
+			return nil, errors.Errorf("party ID not found for node: %s (available nodeIDs: %v, requested nodeIDs: %v)", nodeID, availableNodeIDs, nodeIDs)
 		}
 		parties = append(parties, partyID)
 	}
@@ -162,7 +175,7 @@ func (m *tssPartyManager) executeKeygen(
 	m.mu.Lock()
 	msgCh, exists := m.incomingKeygenMessages[keyID]
 	if !exists {
-		msgCh = make(chan []byte, 100)
+		msgCh = make(chan *incomingMessage, 100)
 		m.incomingKeygenMessages[keyID] = msgCh
 	}
 	m.mu.Unlock()
@@ -185,16 +198,40 @@ func (m *tssPartyManager) executeKeygen(
 			select {
 			case <-ctx.Done():
 				return
-			case msgBytes, ok := <-msgCh:
+			case incomingMsg, ok := <-msgCh:
 				if !ok {
 					return
 				}
-				// 消息已放入队列，由party的内部机制处理
-				// tss-lib的LocalParty在Start()后会创建内部goroutine处理消息
-				// 消息通过WireBytes序列化，接收端需要反序列化
-				// 由于tss-lib的设计，消息处理主要通过party的内部通道完成
-				// 这里我们记录消息已接收，实际处理由party内部完成
-				_ = msgBytes // 消息已放入队列，等待party处理
+
+				// 获取LocalParty实例
+				m.mu.RLock()
+				localParty, exists := m.activeKeygen[keyID]
+				m.mu.RUnlock()
+
+				if !exists {
+					continue
+				}
+
+				// 获取发送方的PartyID
+				fromPartyID, ok := m.nodeIDToPartyID[incomingMsg.fromNodeID]
+				if !ok {
+					log.Warn().
+						Str("from_node_id", incomingMsg.fromNodeID).
+						Msg("PartyID not found for node")
+					continue
+				}
+
+				// 使用UpdateFromBytes将消息注入到LocalParty
+				// isBroadcast参数：如果消息是广播消息则为true，否则为false
+				// 注意：tss-lib 的 UpdateFromBytes 方法必须被调用，否则 party 无法处理接收到的消息
+				ok, tssErr := localParty.UpdateFromBytes(incomingMsg.msgBytes, fromPartyID, false)
+				if !ok || tssErr != nil {
+					log.Warn().
+						Err(tssErr).
+						Str("from_node_id", incomingMsg.fromNodeID).
+						Msg("Failed to update local party from bytes")
+					continue
+				}
 			}
 		}
 	}()
@@ -211,24 +248,86 @@ func (m *tssPartyManager) executeKeygen(
 			return nil, errors.New("keygen timeout")
 		case msg := <-outCh:
 			// 路由消息到其他节点
-			if m.messageRouter != nil {
-				// 获取会话ID（keyID作为sessionID）
-				sessionID := keyID
+			log.Error().
+				Str("keyID", keyID).
+				Str("thisNodeID", thisNodeID).
+				Int("targetCount", len(msg.GetTo())).
+				Msg("Received message from tss-lib outCh, routing to other nodes")
+			if m.messageRouter == nil {
+				return nil, errors.Errorf("messageRouter is nil (keyID: %s, thisNodeID: %s)", keyID, thisNodeID)
+			}
+
+			// 获取会话ID（keyID作为sessionID）
+			sessionID := keyID
+			m.mu.RLock()
+			if mappedID, ok := m.sessionIDMap[keyID]; ok {
+				sessionID = mappedID
+			}
+			m.mu.RUnlock()
+
+			// 路由到所有目标节点
+			targetNodes := msg.GetTo()
+			if len(targetNodes) == 0 {
+				// 如果没有目标节点，可能是广播消息，需要发送给所有其他节点
+				log.Error().
+					Str("keyID", keyID).
+					Str("thisNodeID", thisNodeID).
+					Msg("Message has no target nodes, broadcasting to all other nodes")
+
+				// 获取所有其他节点的 PartyID
 				m.mu.RLock()
-				if mappedID, ok := m.sessionIDMap[keyID]; ok {
-					sessionID = mappedID
+				allPartyIDs := make([]*tss.PartyID, 0, len(m.nodeIDToPartyID))
+				for nodeID, partyID := range m.nodeIDToPartyID {
+					if nodeID != thisNodeID {
+						allPartyIDs = append(allPartyIDs, partyID)
+					}
 				}
 				m.mu.RUnlock()
 
-				// 路由到所有目标节点
-				for _, to := range msg.GetTo() {
-					targetNodeID, ok := m.partyIDToNodeID[to.Id]
+				// 将消息发送给所有其他节点
+				for _, partyID := range allPartyIDs {
+					targetNodeID, ok := m.partyIDToNodeID[partyID.Id]
 					if !ok {
-						return nil, errors.Errorf("party ID to node ID mapping not found: %s", to.Id)
+						log.Error().
+							Str("partyID", partyID.Id).
+							Str("keyID", keyID).
+							Msg("Failed to find nodeID for partyID in broadcast")
+						continue
 					}
+
+					log.Error().
+						Str("keyID", keyID).
+						Str("targetNodeID", targetNodeID).
+						Str("partyID", partyID.Id).
+						Msg("Broadcasting message to node")
+
 					if err := m.messageRouter(sessionID, targetNodeID, msg); err != nil {
-						return nil, errors.Wrapf(err, "route message to node %s", targetNodeID)
+						log.Error().
+							Err(err).
+							Str("keyID", keyID).
+							Str("targetNodeID", targetNodeID).
+							Msg("Failed to broadcast message to node")
+						// 继续发送给其他节点，不因为一个节点失败而停止
 					}
+				}
+				continue // 跳过下面的循环
+			}
+
+			for _, to := range targetNodes {
+				targetNodeID, ok := m.partyIDToNodeID[to.Id]
+				if !ok {
+					// 获取所有可用的映射用于调试
+					availableMappings := make(map[string]string)
+					m.mu.RLock()
+					for pid, nid := range m.partyIDToNodeID {
+						availableMappings[pid] = nid
+					}
+					m.mu.RUnlock()
+					return nil, errors.Errorf("party ID to node ID mapping not found: %s (keyID: %s, thisNodeID: %s, available mappings: %v)", to.Id, keyID, thisNodeID, availableMappings)
+				}
+				// 添加调试信息到错误消息
+				if err := m.messageRouter(sessionID, targetNodeID, msg); err != nil {
+					return nil, errors.Wrapf(err, "route message to node %s (keyID: %s, thisNodeID: %s, partyID: %s, sessionID: %s)", targetNodeID, keyID, thisNodeID, to.Id, sessionID)
 				}
 			}
 		case saveData := <-endCh:
@@ -339,7 +438,7 @@ func (m *tssPartyManager) executeSigning(
 	m.mu.Lock()
 	msgCh, exists := m.incomingSigningMessages[sessionID]
 	if !exists {
-		msgCh = make(chan []byte, 100)
+		msgCh = make(chan *incomingMessage, 100)
 		m.incomingSigningMessages[sessionID] = msgCh
 	}
 	m.mu.Unlock()
@@ -352,26 +451,40 @@ func (m *tssPartyManager) executeSigning(
 	}()
 
 	// 启动消息处理循环：从队列读取消息并注入到party
-	// 注意：tss-lib的消息处理机制是通过party的内部goroutine自动完成的
-	// 接收到的消息字节需要解析并传递给party的内部处理机制
-	// 由于tss-lib的LocalParty没有公开的Update方法，消息处理主要通过party的内部机制
-	// 这里我们将消息字节暂存，等待party的内部机制处理
-	// 实际的消息注入会在party的内部goroutine中自动完成
+	// 使用tss-lib的UpdateFromBytes方法将消息注入到LocalParty
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case msgBytes, ok := <-msgCh:
+			case incomingMsg, ok := <-msgCh:
 				if !ok {
 					return
 				}
-				// 消息已放入队列，由party的内部机制处理
-				// tss-lib的LocalParty在Start()后会创建内部goroutine处理消息
-				// 消息通过WireBytes序列化，接收端需要反序列化
-				// 由于tss-lib的设计，消息处理主要通过party的内部通道完成
-				// 这里我们记录消息已接收，实际处理由party内部完成
-				_ = msgBytes // 消息已放入队列，等待party处理
+				// 获取LocalParty实例
+				m.mu.RLock()
+				localParty, exists := m.activeSigning[sessionID]
+				m.mu.RUnlock()
+
+				if !exists {
+					// LocalParty还未创建或已结束，忽略消息
+					continue
+				}
+
+				// 获取发送方的PartyID
+				fromPartyID, ok := m.nodeIDToPartyID[incomingMsg.fromNodeID]
+				if !ok {
+					// 发送方节点ID未找到，忽略消息
+					continue
+				}
+
+				// 使用UpdateFromBytes将消息注入到LocalParty
+				// isBroadcast参数：如果消息是广播消息则为true，否则为false
+				ok, tssErr := localParty.UpdateFromBytes(incomingMsg.msgBytes, fromPartyID, false)
+				if !ok || tssErr != nil {
+					// 消息注入失败，记录错误但继续处理其他消息
+					continue
+				}
 			}
 		}
 	}()
@@ -454,17 +567,24 @@ func (m *tssPartyManager) ProcessIncomingKeygenMessage(
 	msgBytes []byte,
 ) error {
 	// 将消息放入队列，由executeKeygen中的消息处理循环读取
+	// 消息包含字节数据和发送方节点ID
 	m.mu.Lock()
 	msgCh, exists := m.incomingKeygenMessages[sessionID]
 	if !exists {
-		msgCh = make(chan []byte, 100)
+		msgCh = make(chan *incomingMessage, 100)
 		m.incomingKeygenMessages[sessionID] = msgCh
 	}
 	m.mu.Unlock()
 
+	// 创建消息对象
+	incomingMsg := &incomingMessage{
+		msgBytes:   msgBytes,
+		fromNodeID: fromNodeID,
+	}
+
 	// 非阻塞发送
 	select {
-	case msgCh <- msgBytes:
+	case msgCh <- incomingMsg:
 		// 消息已放入队列，由executeKeygen中的消息处理循环处理
 		return nil
 	case <-ctx.Done():
@@ -486,14 +606,20 @@ func (m *tssPartyManager) ProcessIncomingSigningMessage(
 	m.mu.Lock()
 	msgCh, exists := m.incomingSigningMessages[sessionID]
 	if !exists {
-		msgCh = make(chan []byte, 100)
+		msgCh = make(chan *incomingMessage, 100)
 		m.incomingSigningMessages[sessionID] = msgCh
 	}
 	m.mu.Unlock()
 
+	// 创建消息对象
+	incomingMsg := &incomingMessage{
+		msgBytes:   msgBytes,
+		fromNodeID: fromNodeID,
+	}
+
 	// 非阻塞发送
 	select {
-	case msgCh <- msgBytes:
+	case msgCh <- incomingMsg:
 		// 消息已放入队列，由executeSigning中的消息处理循环处理
 		return nil
 	case <-ctx.Done():

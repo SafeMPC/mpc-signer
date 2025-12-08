@@ -76,6 +76,67 @@ func (m *Manager) CreateSession(ctx context.Context, keyID string, protocol stri
 	return session, nil
 }
 
+// CreateKeyGenSession 创建DKG会话（密钥生成会话）
+// 对于DKG，使用keyID作为sessionID，因为每个密钥的DKG是唯一的
+func (m *Manager) CreateKeyGenSession(ctx context.Context, keyID string, protocol string, threshold int, totalNodes int, nodeIDs []string) (*Session, error) {
+	// 记录节点列表（用于调试）
+	// 注意：这里使用 errors 包的 New 来创建日志，因为 session 包没有导入 log
+	// 但我们可以在保存前记录节点列表
+	_ = nodeIDs // 避免未使用变量警告
+
+	// DKG会话使用keyID作为sessionID
+	sessionID := keyID
+	now := time.Now()
+	expiresAt := now.Add(m.timeout)
+
+	// 确保protocol是keygen相关的
+	if protocol == "" {
+		protocol = "keygen"
+	}
+
+	session := &Session{
+		SessionID:          sessionID,
+		KeyID:              keyID,
+		Protocol:           protocol, // "keygen" 或 "dkg"
+		Status:             string(SessionStatusPending),
+		Threshold:          threshold,
+		TotalNodes:         totalNodes,
+		ParticipatingNodes: nodeIDs, // 预定义的参与节点列表
+		CurrentRound:       0,
+		TotalRounds:        4, // GG18/GG20 DKG需要4轮
+		CreatedAt:          now,
+		ExpiresAt:          expiresAt,
+	}
+
+	// 保存到PostgreSQL（复用SigningSession结构，通过Protocol字段区分）
+	storageSession := &storage.SigningSession{
+		SessionID:          session.SessionID,
+		KeyID:              session.KeyID,
+		Protocol:           session.Protocol,
+		Status:             session.Status,
+		Threshold:          session.Threshold,
+		TotalNodes:         session.TotalNodes,
+		ParticipatingNodes: session.ParticipatingNodes,
+		CurrentRound:       session.CurrentRound,
+		TotalRounds:        session.TotalRounds,
+		Signature:          session.Signature, // DKG会话中，Signature字段可以存储公钥
+		CreatedAt:          session.CreatedAt,
+		CompletedAt:        session.CompletedAt,
+		DurationMs:         session.DurationMs,
+	}
+
+	if err := m.metadataStore.SaveSigningSession(ctx, storageSession); err != nil {
+		return nil, errors.Wrap(err, "failed to save keygen session to database")
+	}
+
+	// 保存到Redis缓存
+	if err := m.sessionStore.SaveSession(ctx, storageSession, m.timeout); err != nil {
+		return nil, errors.Wrap(err, "failed to save keygen session to cache")
+	}
+
+	return session, nil
+}
+
 // GetSession 获取会话
 func (m *Manager) GetSession(ctx context.Context, sessionID string) (*Session, error) {
 	// 先从Redis获取
@@ -173,6 +234,45 @@ func (m *Manager) CompleteSession(ctx context.Context, sessionID string, signatu
 
 	if err := m.UpdateSession(ctx, session); err != nil {
 		return errors.Wrap(err, "failed to update session")
+	}
+
+	return nil
+}
+
+// CompleteKeygenSession 完成 DKG 会话并写入公钥，更新密钥为 Active
+func (m *Manager) CompleteKeygenSession(ctx context.Context, keyID string, publicKey string) error {
+	session, err := m.GetSession(ctx, keyID) // DKG 会话的 sessionID 等于 keyID
+	if err != nil {
+		return errors.Wrap(err, "failed to get keygen session")
+	}
+
+	// 仅允许在 Pending/Active 状态完成
+	if session.Status != string(SessionStatusPending) && session.Status != string(SessionStatusActive) {
+		return errors.Errorf("cannot complete session in status %s", session.Status)
+	}
+
+	now := time.Now()
+	session.Status = string(SessionStatusCompleted)
+	session.Signature = publicKey // 对于 DKG，将公钥写入 Signature 字段
+	session.CompletedAt = &now
+	session.DurationMs = int(now.Sub(session.CreatedAt).Milliseconds())
+
+	// 更新会话
+	if err := m.UpdateSession(ctx, session); err != nil {
+		return errors.Wrap(err, "failed to update keygen session")
+	}
+
+	// 更新密钥元数据：公钥 + 状态 Active
+	keyMeta, err := m.metadataStore.GetKeyMetadata(ctx, keyID)
+	if err != nil {
+		return errors.Wrap(err, "failed to get key metadata")
+	}
+	keyMeta.PublicKey = publicKey
+	keyMeta.Status = "Active"
+	keyMeta.UpdatedAt = now
+
+	if err := m.metadataStore.UpdateKeyMetadata(ctx, keyMeta); err != nil {
+		return errors.Wrap(err, "failed to update key metadata")
 	}
 
 	return nil

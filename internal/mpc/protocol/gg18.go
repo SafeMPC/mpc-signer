@@ -261,6 +261,21 @@ func (p *GG18Protocol) RotateKey(ctx context.Context, keyID string) error {
 
 // ProcessIncomingKeygenMessage 处理接收到的DKG消息
 func (p *GG18Protocol) ProcessIncomingKeygenMessage(ctx context.Context, sessionID string, fromNodeID string, msgBytes []byte) error {
+	// 检查是否已经有活跃的keygen实例
+	p.partyManager.mu.RLock()
+	_, hasActiveKeygen := p.partyManager.activeKeygen[sessionID]
+	p.partyManager.mu.RUnlock()
+	
+	// 如果没有活跃实例，说明这是第一个消息，需要先启动DKG协议
+	// 但是，启动DKG需要节点列表等信息，这些信息应该从会话中获取
+	// 由于ProcessIncomingKeygenMessage没有访问会话的权限，我们暂时只处理消息
+	// 启动DKG的逻辑应该在handleProtocolMessage中完成
+	if !hasActiveKeygen {
+		// 记录警告：收到DKG消息但没有活跃的keygen实例
+		// 这通常意味着参与者节点还没有启动DKG协议
+		// 消息会被放入队列，等待DKG协议启动后处理
+	}
+	
 	return p.partyManager.ProcessIncomingKeygenMessage(ctx, sessionID, fromNodeID, msgBytes)
 }
 

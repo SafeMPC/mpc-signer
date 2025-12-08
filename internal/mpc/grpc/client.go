@@ -1,4 +1,4 @@
-package communication
+package grpc
 
 import (
 	"context"
@@ -18,11 +18,12 @@ import (
 
 // GRPCClient gRPC客户端，用于节点间通信
 type GRPCClient struct {
-	mu          sync.RWMutex
-	conns       map[string]*grpc.ClientConn
-	clients     map[string]pb.MPCNodeClient
-	cfg         *ClientConfig
-	nodeManager *node.Manager
+	mu            sync.RWMutex
+	conns         map[string]*grpc.ClientConn
+	clients       map[string]pb.MPCNodeClient
+	cfg           *ClientConfig
+	nodeManager   *node.Manager
+	nodeDiscovery *node.Discovery // 用于从 Consul 发现节点信息
 }
 
 // ClientConfig gRPC客户端配置
@@ -44,11 +45,19 @@ func NewGRPCClient(cfg config.Server, nodeManager *node.Manager) (*GRPCClient, e
 	}
 
 	return &GRPCClient{
-		conns:       make(map[string]*grpc.ClientConn),
-		clients:     make(map[string]pb.MPCNodeClient),
-		cfg:         clientCfg,
-		nodeManager: nodeManager,
+		conns:         make(map[string]*grpc.ClientConn),
+		clients:       make(map[string]pb.MPCNodeClient),
+		cfg:           clientCfg,
+		nodeManager:   nodeManager,
+		nodeDiscovery: nil, // 稍后通过 SetNodeDiscovery 设置
 	}, nil
+}
+
+// SetNodeDiscovery 设置节点发现器（用于从 Consul 获取节点信息）
+func (c *GRPCClient) SetNodeDiscovery(discovery *node.Discovery) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.nodeDiscovery = discovery
 }
 
 // getOrCreateConnection 获取或创建到指定节点的连接
@@ -62,9 +71,44 @@ func (c *GRPCClient) getOrCreateConnection(ctx context.Context, nodeID string) (
 	}
 
 	// 获取节点信息
-	nodeInfo, err := c.nodeManager.GetNode(ctx, nodeID)
+	// 首先尝试从数据库获取
+	var nodeInfo *node.Node
+	var err error
+	nodeInfo, err = c.nodeManager.GetNode(ctx, nodeID)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get node info for %s", nodeID)
+		// 如果从数据库获取失败，尝试从 Consul 服务发现中获取
+		if c.nodeDiscovery != nil {
+			// 从 Consul 发现节点（尝试发现所有类型的节点）
+			// 注意：这里我们需要知道节点类型，但暂时尝试 participant 和 coordinator
+			for _, nodeType := range []node.NodeType{node.NodeTypeParticipant, node.NodeTypeCoordinator} {
+				// ✅ 使用较小的 limit（与典型参与者数量匹配），并忽略数量不足的错误
+				nodes, discoverErr := c.nodeDiscovery.DiscoverNodes(ctx, nodeType, node.NodeStatusActive, 3)
+				// 即使返回错误（节点数不足），也可能返回了部分节点，继续查找
+				if discoverErr != nil {
+					// 忽略数量不足的错误，只要有节点就继续
+					if len(nodes) == 0 {
+						continue
+					}
+				}
+
+				// 查找匹配的节点
+				for _, n := range nodes {
+					if n.NodeID == nodeID {
+						nodeInfo = n
+						err = nil
+						break
+					}
+				}
+				if err == nil {
+					break
+				}
+			}
+		}
+
+		// 如果仍然失败，返回错误
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get node info for %s (not found in database or Consul)", nodeID)
+		}
 	}
 
 	// 创建连接
@@ -98,6 +142,7 @@ func (c *GRPCClient) getOrCreateConnection(ctx context.Context, nodeID string) (
 	}))
 
 	// 建立连接
+	// log.Debug().Str("node_id", nodeID).Str("endpoint", nodeInfo.Endpoint).Msg("Dialing gRPC node")
 	conn, err := grpc.NewClient(nodeInfo.Endpoint, opts...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to connect to node %s at %s", nodeID, nodeInfo.Endpoint)
@@ -111,6 +156,15 @@ func (c *GRPCClient) getOrCreateConnection(ctx context.Context, nodeID string) (
 	c.clients[nodeID] = client
 
 	return client, nil
+}
+
+// SendStartDKG 调用参与者的 StartDKG RPC
+func (c *GRPCClient) SendStartDKG(ctx context.Context, nodeID string, req *pb.StartDKGRequest) (*pb.StartDKGResponse, error) {
+	client, err := c.getOrCreateConnection(ctx, nodeID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get connection to node %s", nodeID)
+	}
+	return client.StartDKG(ctx, req)
 }
 
 // SendSigningMessage 发送签名协议消息到目标节点
@@ -150,6 +204,10 @@ func (c *GRPCClient) SendSigningMessage(ctx context.Context, nodeID string, msg 
 
 // SendKeygenMessage 发送DKG协议消息到目标节点
 func (c *GRPCClient) SendKeygenMessage(ctx context.Context, nodeID string, msg tss.Message, sessionID string) error {
+	// 添加调试日志
+	// 注意：这里不能使用 log 包，因为 communication 包不应该依赖 log
+	// 但我们可以通过错误消息来调试
+
 	client, err := c.getOrCreateConnection(ctx, nodeID)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get connection to node %s", nodeID)
@@ -174,9 +232,41 @@ func (c *GRPCClient) SendKeygenMessage(ctx context.Context, nodeID string, msg t
 		Timestamp: time.Now().Format(time.RFC3339),
 	}
 
+	// 发送消息
+	resp, err := client.SubmitSignatureShare(ctx, shareReq)
+	if err != nil {
+		return errors.Wrapf(err, "failed to send keygen message to node %s (sessionID: %s)", nodeID, sessionID)
+	}
+
+	if !resp.Accepted {
+		return errors.Errorf("node %s rejected keygen message: %s", nodeID, resp.Message)
+	}
+
+	// 这是一个非常详细的日志，仅在调试时启用
+	// fmt.Printf("Successfully sent keygen message to %s (round: %d, len: %d)\n", nodeID, round, len(msgBytes))
+
+	return nil
+}
+
+// SendDKGStartNotification 发送 DKG 启动通知给 participant
+func (c *GRPCClient) SendDKGStartNotification(ctx context.Context, nodeID string, sessionID string) error {
+	client, err := c.getOrCreateConnection(ctx, nodeID)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get connection to node %s", nodeID)
+	}
+
+	// 发送特殊的 "DKG_START" 消息
+	shareReq := &pb.ShareRequest{
+		SessionId: sessionID,
+		NodeId:    nodeID,
+		ShareData: []byte("DKG_START"), // 特殊标记，participant 会识别并启动 DKG
+		Round:     0,
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+
 	_, err = client.SubmitSignatureShare(ctx, shareReq)
 	if err != nil {
-		return errors.Wrapf(err, "failed to send keygen message to node %s", nodeID)
+		return errors.Wrapf(err, "failed to send DKG start notification to node %s (sessionID: %s)", nodeID, sessionID)
 	}
 
 	return nil

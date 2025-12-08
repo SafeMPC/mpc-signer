@@ -20,9 +20,9 @@ import (
 	"github.com/rs/zerolog/log"
 
 	// MPC imports
-	"github.com/kashguard/go-mpc-wallet/internal/discovery"
-	"github.com/kashguard/go-mpc-wallet/internal/grpc"
 	"github.com/kashguard/go-mpc-wallet/internal/mpc/coordinator"
+	"github.com/kashguard/go-mpc-wallet/internal/mpc/discovery"
+	mpcgrpc "github.com/kashguard/go-mpc-wallet/internal/mpc/grpc"
 	"github.com/kashguard/go-mpc-wallet/internal/mpc/key"
 	"github.com/kashguard/go-mpc-wallet/internal/mpc/node"
 	"github.com/kashguard/go-mpc-wallet/internal/mpc/participant"
@@ -77,21 +77,11 @@ type Server struct {
 	NodeRegistry       *node.Registry
 	NodeDiscovery      *node.Discovery
 	SessionManager     *session.Manager
+	DiscoveryService   *discovery.Service // ✅ 新的统一服务发现
 
-	// gRPC services
-	GRPCServer       *grpc.Server
-	GRPCClient       *grpc.Client
-	NodeGRPCService  *grpc.NodeService
-	CoordGRPCService *grpc.CoordinatorService
-	RegGRPCService   *grpc.RegistryService
-	HeartbeatService *grpc.HeartbeatService
-	HeartbeatManager *grpc.HeartbeatManager
-
-	// Service discovery
-	ServiceDiscovery discovery.ServiceDiscovery
-	ServiceRegistry  *discovery.ServiceRegistry
-	MPCDiscovery     *discovery.MPCDiscovery
-	LoadBalancer     discovery.LoadBalancer
+	// gRPC services (unified MPC gRPC)
+	MPCGRPCServer *mpcgrpc.GRPCServer // MPC gRPC 服务端（统一实现）
+	MPCGRPCClient *mpcgrpc.GRPCClient // MPC gRPC 客户端（用于节点间通信）
 }
 
 // newServerWithComponents is used by wire to initialize the server components.
@@ -115,19 +105,11 @@ func newServerWithComponents(
 	nodeRegistry *node.Registry,
 	nodeDiscovery *node.Discovery,
 	sessionManager *session.Manager,
-	grpcServer *grpc.Server,
-	grpcClient *grpc.Client,
-	nodeGRPCService *grpc.NodeService,
-	coordGRPCService *grpc.CoordinatorService,
-	regGRPCService *grpc.RegistryService,
-	heartbeatService *grpc.HeartbeatService,
-	heartbeatManager *grpc.HeartbeatManager,
-	serviceDiscovery discovery.ServiceDiscovery,
-	serviceRegistry *discovery.ServiceRegistry,
-	mpcDiscovery *discovery.MPCDiscovery,
-	loadBalancer discovery.LoadBalancer,
+	mpcGRPCServer *mpcgrpc.GRPCServer, // ✅ 统一的 MPC gRPC 服务端
+	mpcGRPCClient *mpcgrpc.GRPCClient, // ✅ 统一的 MPC gRPC 客户端
+	discoveryService *discovery.Service, // ✅ 新的统一服务发现
 ) *Server {
-	return &Server{
+	s := &Server{
 		Config:  cfg,
 		DB:      db,
 		Mailer:  mail,
@@ -147,18 +129,17 @@ func newServerWithComponents(
 		NodeDiscovery:      nodeDiscovery,
 		SessionManager:     sessionManager,
 
-		GRPCServer:       grpcServer,
-		GRPCClient:       grpcClient,
-		NodeGRPCService:  nodeGRPCService,
-		CoordGRPCService: coordGRPCService,
-		RegGRPCService:   regGRPCService,
-		HeartbeatService: heartbeatService,
-		HeartbeatManager: heartbeatManager,
-		ServiceDiscovery: serviceDiscovery,
-		ServiceRegistry:  serviceRegistry,
-		MPCDiscovery:     mpcDiscovery,
-		LoadBalancer:     loadBalancer,
+		MPCGRPCServer:    mpcGRPCServer,    // ✅ 统一的 MPC gRPC 服务端
+		MPCGRPCClient:    mpcGRPCClient,    // ✅ 统一的 MPC gRPC 客户端
+		DiscoveryService: discoveryService, // ✅ 新的统一服务发现
 	}
+
+	// 设置 NodeDiscovery 到 MPCGRPCClient，使其能够从 Consul 获取节点信息
+	if s.MPCGRPCClient != nil && s.NodeDiscovery != nil {
+		s.MPCGRPCClient.SetNodeDiscovery(s.NodeDiscovery)
+	}
+
+	return s
 }
 
 type AuthService interface {
@@ -199,8 +180,24 @@ func (s *Server) Start() error {
 	ctx := context.Background()
 
 	// 1. 注册节点到服务发现（Consul）
-	if s.ServiceRegistry != nil {
-		if err := s.ServiceRegistry.Register(ctx); err != nil {
+	if s.DiscoveryService != nil && s.Config.MPC.NodeID != "" {
+		// ✅ 在 docker-compose 网络中使用可解析的主机名：
+		// coordinator 使用服务名 "coordinator"（避免使用 nodeID: coordinator-1 导致无法解析）
+		// participants 的 nodeID 与服务名一致（participant-1/2/3），可直接使用
+		serviceHost := s.Config.MPC.NodeID
+		if s.Config.MPC.NodeType == "coordinator" {
+			serviceHost = "coordinator"
+		}
+
+		log.Info().
+			Str("node_id", s.Config.MPC.NodeID).
+			Str("node_type", s.Config.MPC.NodeType).
+			Str("service_host", serviceHost).
+			Int("grpc_port", s.Config.MPC.GRPCPort).
+			Msg("Registering node to Consul")
+
+		err := s.DiscoveryService.RegisterNode(ctx, s.Config.MPC.NodeID, s.Config.MPC.NodeType, serviceHost, s.Config.MPC.GRPCPort)
+		if err != nil {
 			// 注册失败不应阻止服务启动，记录警告日志
 			log.Warn().
 				Err(err).
@@ -215,14 +212,14 @@ func (s *Server) Start() error {
 		}
 	}
 
-	// 2. 启动 gRPC 服务器（如果已初始化）
+	// 2. 启动 MPC gRPC 服务器（如果已初始化）
 	// 注意：gRPC 服务器有自己的 Start 方法，它会在 goroutine 中运行并等待 context
 	// 使用 context.Background() 让 gRPC 服务器一直运行直到显式停止
-	if s.GRPCServer != nil {
+	if s.MPCGRPCServer != nil {
 		go func() {
 			grpcCtx := context.Background() // gRPC 服务器会一直运行，直到在 Shutdown 中显式停止
-			if err := s.GRPCServer.Start(grpcCtx); err != nil {
-				log.Error().Err(err).Msg("gRPC server failed")
+			if err := s.MPCGRPCServer.Start(grpcCtx); err != nil {
+				log.Error().Err(err).Msg("MPC gRPC server failed")
 			}
 		}()
 		log.Info().
@@ -244,9 +241,9 @@ func (s *Server) Shutdown(ctx context.Context) []error {
 	var errs []error
 
 	// 1. 注销节点从服务发现（Consul）
-	if s.ServiceRegistry != nil && s.ServiceRegistry.IsRegistered() {
+	if s.DiscoveryService != nil {
 		log.Debug().Msg("Deregistering node from service discovery")
-		if err := s.ServiceRegistry.Deregister(ctx); err != nil {
+		if err := s.DiscoveryService.DeregisterNode(ctx, s.Config.MPC.NodeID, s.Config.MPC.NodeType); err != nil {
 			log.Error().Err(err).Msg("Failed to deregister node from service discovery")
 			errs = append(errs, err)
 		} else {
@@ -257,11 +254,11 @@ func (s *Server) Shutdown(ctx context.Context) []error {
 		}
 	}
 
-	// 2. 停止 gRPC 服务器（如果已初始化）
-	if s.GRPCServer != nil {
-		log.Debug().Msg("Stopping gRPC server")
-		if err := s.GRPCServer.Stop(); err != nil {
-			log.Error().Err(err).Msg("Failed to stop gRPC server")
+	// 2. 停止 MPC gRPC 服务器（如果已初始化）
+	if s.MPCGRPCServer != nil {
+		log.Debug().Msg("Stopping MPC gRPC server")
+		if err := s.MPCGRPCServer.Stop(); err != nil {
+			log.Error().Err(err).Msg("Failed to stop MPC gRPC server")
 			errs = append(errs, err)
 		}
 	}

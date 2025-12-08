@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        v3.19.4
-// source: mpc/v1/mpc.proto
+// source: proto/mpc/v1/mpc.proto
 
 package v1
 
@@ -35,7 +35,7 @@ type CreateSessionRequest struct {
 
 func (x *CreateSessionRequest) Reset() {
 	*x = CreateSessionRequest{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[0]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -47,7 +47,7 @@ func (x *CreateSessionRequest) String() string {
 func (*CreateSessionRequest) ProtoMessage() {}
 
 func (x *CreateSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[0]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -60,7 +60,7 @@ func (x *CreateSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSessionRequest.ProtoReflect.Descriptor instead.
 func (*CreateSessionRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{0}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *CreateSessionRequest) GetKeyId() string {
@@ -113,7 +113,7 @@ type CreateSessionResponse struct {
 
 func (x *CreateSessionResponse) Reset() {
 	*x = CreateSessionResponse{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[1]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -125,7 +125,7 @@ func (x *CreateSessionResponse) String() string {
 func (*CreateSessionResponse) ProtoMessage() {}
 
 func (x *CreateSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[1]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -138,7 +138,7 @@ func (x *CreateSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSessionResponse.ProtoReflect.Descriptor instead.
 func (*CreateSessionResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{1}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CreateSessionResponse) GetSessionId() string {
@@ -199,7 +199,7 @@ type SessionStatusRequest struct {
 
 func (x *SessionStatusRequest) Reset() {
 	*x = SessionStatusRequest{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[2]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -211,7 +211,7 @@ func (x *SessionStatusRequest) String() string {
 func (*SessionStatusRequest) ProtoMessage() {}
 
 func (x *SessionStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[2]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -224,7 +224,7 @@ func (x *SessionStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionStatusRequest.ProtoReflect.Descriptor instead.
 func (*SessionStatusRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{2}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *SessionStatusRequest) GetSessionId() string {
@@ -251,7 +251,7 @@ type SessionStatusResponse struct {
 
 func (x *SessionStatusResponse) Reset() {
 	*x = SessionStatusResponse{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[3]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -263,7 +263,7 @@ func (x *SessionStatusResponse) String() string {
 func (*SessionStatusResponse) ProtoMessage() {}
 
 func (x *SessionStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[3]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -276,7 +276,7 @@ func (x *SessionStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionStatusResponse.ProtoReflect.Descriptor instead.
 func (*SessionStatusResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{3}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *SessionStatusResponse) GetSessionId() string {
@@ -356,7 +356,7 @@ type ShareRequest struct {
 
 func (x *ShareRequest) Reset() {
 	*x = ShareRequest{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[4]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -368,7 +368,7 @@ func (x *ShareRequest) String() string {
 func (*ShareRequest) ProtoMessage() {}
 
 func (x *ShareRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[4]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -381,7 +381,7 @@ func (x *ShareRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShareRequest.ProtoReflect.Descriptor instead.
 func (*ShareRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{4}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ShareRequest) GetSessionId() string {
@@ -430,7 +430,7 @@ type ShareResponse struct {
 
 func (x *ShareResponse) Reset() {
 	*x = ShareResponse{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[5]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -442,7 +442,7 @@ func (x *ShareResponse) String() string {
 func (*ShareResponse) ProtoMessage() {}
 
 func (x *ShareResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[5]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -455,7 +455,7 @@ func (x *ShareResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShareResponse.ProtoReflect.Descriptor instead.
 func (*ShareResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{5}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ShareResponse) GetAccepted() bool {
@@ -495,7 +495,7 @@ type StartDKGRequest struct {
 
 func (x *StartDKGRequest) Reset() {
 	*x = StartDKGRequest{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[6]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -507,7 +507,7 @@ func (x *StartDKGRequest) String() string {
 func (*StartDKGRequest) ProtoMessage() {}
 
 func (x *StartDKGRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[6]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -520,7 +520,7 @@ func (x *StartDKGRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartDKGRequest.ProtoReflect.Descriptor instead.
 func (*StartDKGRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{6}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *StartDKGRequest) GetSessionId() string {
@@ -582,7 +582,7 @@ type StartDKGResponse struct {
 
 func (x *StartDKGResponse) Reset() {
 	*x = StartDKGResponse{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[7]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -594,7 +594,7 @@ func (x *StartDKGResponse) String() string {
 func (*StartDKGResponse) ProtoMessage() {}
 
 func (x *StartDKGResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[7]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -607,7 +607,7 @@ func (x *StartDKGResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartDKGResponse.ProtoReflect.Descriptor instead.
 func (*StartDKGResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{7}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *StartDKGResponse) GetStarted() bool {
@@ -634,7 +634,7 @@ type AggregateRequest struct {
 
 func (x *AggregateRequest) Reset() {
 	*x = AggregateRequest{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[8]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -646,7 +646,7 @@ func (x *AggregateRequest) String() string {
 func (*AggregateRequest) ProtoMessage() {}
 
 func (x *AggregateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[8]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -659,7 +659,7 @@ func (x *AggregateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AggregateRequest.ProtoReflect.Descriptor instead.
 func (*AggregateRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{8}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *AggregateRequest) GetSessionId() string {
@@ -682,7 +682,7 @@ type AggregateResponse struct {
 
 func (x *AggregateResponse) Reset() {
 	*x = AggregateResponse{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[9]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -694,7 +694,7 @@ func (x *AggregateResponse) String() string {
 func (*AggregateResponse) ProtoMessage() {}
 
 func (x *AggregateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[9]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -707,7 +707,7 @@ func (x *AggregateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AggregateResponse.ProtoReflect.Descriptor instead.
 func (*AggregateResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{9}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *AggregateResponse) GetSuccess() bool {
@@ -764,7 +764,7 @@ type SessionMessage struct {
 
 func (x *SessionMessage) Reset() {
 	*x = SessionMessage{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[10]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -776,7 +776,7 @@ func (x *SessionMessage) String() string {
 func (*SessionMessage) ProtoMessage() {}
 
 func (x *SessionMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[10]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -789,7 +789,7 @@ func (x *SessionMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionMessage.ProtoReflect.Descriptor instead.
 func (*SessionMessage) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{10}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *SessionMessage) GetMessageType() isSessionMessage_MessageType {
@@ -921,7 +921,7 @@ type JoinRequest struct {
 
 func (x *JoinRequest) Reset() {
 	*x = JoinRequest{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[11]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -933,7 +933,7 @@ func (x *JoinRequest) String() string {
 func (*JoinRequest) ProtoMessage() {}
 
 func (x *JoinRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[11]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -946,7 +946,7 @@ func (x *JoinRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinRequest.ProtoReflect.Descriptor instead.
 func (*JoinRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{11}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *JoinRequest) GetSessionId() string {
@@ -981,7 +981,7 @@ type ShareMessage struct {
 
 func (x *ShareMessage) Reset() {
 	*x = ShareMessage{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[12]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -993,7 +993,7 @@ func (x *ShareMessage) String() string {
 func (*ShareMessage) ProtoMessage() {}
 
 func (x *ShareMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[12]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1006,7 +1006,7 @@ func (x *ShareMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShareMessage.ProtoReflect.Descriptor instead.
 func (*ShareMessage) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{12}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ShareMessage) GetShareData() []byte {
@@ -1045,7 +1045,7 @@ type SessionConfirmation struct {
 
 func (x *SessionConfirmation) Reset() {
 	*x = SessionConfirmation{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[13]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1057,7 +1057,7 @@ func (x *SessionConfirmation) String() string {
 func (*SessionConfirmation) ProtoMessage() {}
 
 func (x *SessionConfirmation) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[13]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1070,7 +1070,7 @@ func (x *SessionConfirmation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionConfirmation.ProtoReflect.Descriptor instead.
 func (*SessionConfirmation) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{13}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *SessionConfirmation) GetSessionId() string {
@@ -1135,7 +1135,7 @@ type RoundMessage struct {
 
 func (x *RoundMessage) Reset() {
 	*x = RoundMessage{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[14]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1147,7 +1147,7 @@ func (x *RoundMessage) String() string {
 func (*RoundMessage) ProtoMessage() {}
 
 func (x *RoundMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[14]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1160,7 +1160,7 @@ func (x *RoundMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoundMessage.ProtoReflect.Descriptor instead.
 func (*RoundMessage) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{14}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *RoundMessage) GetRound() int32 {
@@ -1209,7 +1209,7 @@ type CompletionMessage struct {
 
 func (x *CompletionMessage) Reset() {
 	*x = CompletionMessage{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[15]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1221,7 +1221,7 @@ func (x *CompletionMessage) String() string {
 func (*CompletionMessage) ProtoMessage() {}
 
 func (x *CompletionMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[15]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1234,7 +1234,7 @@ func (x *CompletionMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompletionMessage.ProtoReflect.Descriptor instead.
 func (*CompletionMessage) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{15}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *CompletionMessage) GetSignature() string {
@@ -1270,7 +1270,7 @@ type ErrorMessage struct {
 
 func (x *ErrorMessage) Reset() {
 	*x = ErrorMessage{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[16]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1282,7 +1282,7 @@ func (x *ErrorMessage) String() string {
 func (*ErrorMessage) ProtoMessage() {}
 
 func (x *ErrorMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[16]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1295,7 +1295,7 @@ func (x *ErrorMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ErrorMessage.ProtoReflect.Descriptor instead.
 func (*ErrorMessage) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{16}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ErrorMessage) GetErrorCode() string {
@@ -1338,7 +1338,7 @@ type HeartbeatRequest struct {
 
 func (x *HeartbeatRequest) Reset() {
 	*x = HeartbeatRequest{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[17]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1350,7 +1350,7 @@ func (x *HeartbeatRequest) String() string {
 func (*HeartbeatRequest) ProtoMessage() {}
 
 func (x *HeartbeatRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[17]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1363,7 +1363,7 @@ func (x *HeartbeatRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatRequest.ProtoReflect.Descriptor instead.
 func (*HeartbeatRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{17}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *HeartbeatRequest) GetNodeId() string {
@@ -1399,7 +1399,7 @@ type HeartbeatResponse struct {
 
 func (x *HeartbeatResponse) Reset() {
 	*x = HeartbeatResponse{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[18]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1411,7 +1411,7 @@ func (x *HeartbeatResponse) String() string {
 func (*HeartbeatResponse) ProtoMessage() {}
 
 func (x *HeartbeatResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[18]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1424,7 +1424,7 @@ func (x *HeartbeatResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatResponse.ProtoReflect.Descriptor instead.
 func (*HeartbeatResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{18}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *HeartbeatResponse) GetAlive() bool {
@@ -1455,11 +1455,11 @@ func (x *HeartbeatResponse) GetInstructions() map[string]string {
 	return nil
 }
 
-var File_mpc_v1_mpc_proto protoreflect.FileDescriptor
+var File_proto_mpc_v1_mpc_proto protoreflect.FileDescriptor
 
-const file_mpc_v1_mpc_proto_rawDesc = "" +
+const file_proto_mpc_v1_mpc_proto_rawDesc = "" +
 	"\n" +
-	"\x10mpc/v1/mpc.proto\x12\x06mpc.v1\"\xb9\x01\n" +
+	"\x16proto/mpc/v1/mpc.proto\x12\x06mpc.v1\"\xb9\x01\n" +
 	"\x14CreateSessionRequest\x12\x15\n" +
 	"\x06key_id\x18\x01 \x01(\tR\x05keyId\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\fR\amessage\x12\x1a\n" +
@@ -1606,19 +1606,19 @@ const file_mpc_v1_mpc_proto_rawDesc = "" +
 	"\x13AggregateSignatures\x12\x18.mpc.v1.AggregateRequest\x1a\x19.mpc.v1.AggregateResponseB7Z5github.com/kashguard/go-mpc-wallet/internal/pb/mpc/v1b\x06proto3"
 
 var (
-	file_mpc_v1_mpc_proto_rawDescOnce sync.Once
-	file_mpc_v1_mpc_proto_rawDescData []byte
+	file_proto_mpc_v1_mpc_proto_rawDescOnce sync.Once
+	file_proto_mpc_v1_mpc_proto_rawDescData []byte
 )
 
-func file_mpc_v1_mpc_proto_rawDescGZIP() []byte {
-	file_mpc_v1_mpc_proto_rawDescOnce.Do(func() {
-		file_mpc_v1_mpc_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_mpc_v1_mpc_proto_rawDesc), len(file_mpc_v1_mpc_proto_rawDesc)))
+func file_proto_mpc_v1_mpc_proto_rawDescGZIP() []byte {
+	file_proto_mpc_v1_mpc_proto_rawDescOnce.Do(func() {
+		file_proto_mpc_v1_mpc_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_mpc_v1_mpc_proto_rawDesc), len(file_proto_mpc_v1_mpc_proto_rawDesc)))
 	})
-	return file_mpc_v1_mpc_proto_rawDescData
+	return file_proto_mpc_v1_mpc_proto_rawDescData
 }
 
-var file_mpc_v1_mpc_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
-var file_mpc_v1_mpc_proto_goTypes = []any{
+var file_proto_mpc_v1_mpc_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_proto_mpc_v1_mpc_proto_goTypes = []any{
 	(*CreateSessionRequest)(nil),  // 0: mpc.v1.CreateSessionRequest
 	(*CreateSessionResponse)(nil), // 1: mpc.v1.CreateSessionResponse
 	(*SessionStatusRequest)(nil),  // 2: mpc.v1.SessionStatusRequest
@@ -1641,7 +1641,7 @@ var file_mpc_v1_mpc_proto_goTypes = []any{
 	nil,                           // 19: mpc.v1.HeartbeatRequest.StatusInfoEntry
 	nil,                           // 20: mpc.v1.HeartbeatResponse.InstructionsEntry
 }
-var file_mpc_v1_mpc_proto_depIdxs = []int32{
+var file_proto_mpc_v1_mpc_proto_depIdxs = []int32{
 	11, // 0: mpc.v1.SessionMessage.join_request:type_name -> mpc.v1.JoinRequest
 	12, // 1: mpc.v1.SessionMessage.share_message:type_name -> mpc.v1.ShareMessage
 	17, // 2: mpc.v1.SessionMessage.heartbeat_request:type_name -> mpc.v1.HeartbeatRequest
@@ -1672,12 +1672,12 @@ var file_mpc_v1_mpc_proto_depIdxs = []int32{
 	0,  // [0:9] is the sub-list for field type_name
 }
 
-func init() { file_mpc_v1_mpc_proto_init() }
-func file_mpc_v1_mpc_proto_init() {
-	if File_mpc_v1_mpc_proto != nil {
+func init() { file_proto_mpc_v1_mpc_proto_init() }
+func file_proto_mpc_v1_mpc_proto_init() {
+	if File_proto_mpc_v1_mpc_proto != nil {
 		return
 	}
-	file_mpc_v1_mpc_proto_msgTypes[10].OneofWrappers = []any{
+	file_proto_mpc_v1_mpc_proto_msgTypes[10].OneofWrappers = []any{
 		(*SessionMessage_JoinRequest)(nil),
 		(*SessionMessage_ShareMessage)(nil),
 		(*SessionMessage_HeartbeatRequest)(nil),
@@ -1690,17 +1690,17 @@ func file_mpc_v1_mpc_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mpc_v1_mpc_proto_rawDesc), len(file_mpc_v1_mpc_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_mpc_v1_mpc_proto_rawDesc), len(file_proto_mpc_v1_mpc_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   2,
 		},
-		GoTypes:           file_mpc_v1_mpc_proto_goTypes,
-		DependencyIndexes: file_mpc_v1_mpc_proto_depIdxs,
-		MessageInfos:      file_mpc_v1_mpc_proto_msgTypes,
+		GoTypes:           file_proto_mpc_v1_mpc_proto_goTypes,
+		DependencyIndexes: file_proto_mpc_v1_mpc_proto_depIdxs,
+		MessageInfos:      file_proto_mpc_v1_mpc_proto_msgTypes,
 	}.Build()
-	File_mpc_v1_mpc_proto = out.File
-	file_mpc_v1_mpc_proto_goTypes = nil
-	file_mpc_v1_mpc_proto_depIdxs = nil
+	File_proto_mpc_v1_mpc_proto = out.File
+	file_proto_mpc_v1_mpc_proto_goTypes = nil
+	file_proto_mpc_v1_mpc_proto_depIdxs = nil
 }

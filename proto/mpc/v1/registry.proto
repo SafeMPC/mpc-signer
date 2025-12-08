@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package mpc.v1;
 
-import "proto/mpc/v1/common.proto";
+import "mpc/v1/common.proto";
 
 option go_package = "github.com/kashguard/go-mpc-wallet/internal/pb/mpc/v1";
 

@@ -7,6 +7,7 @@ import (
 	"github.com/kashguard/go-mpc-wallet/internal/mpc/protocol"
 	"github.com/kashguard/go-mpc-wallet/internal/mpc/storage"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 // DKGService 分布式密钥生成服务
@@ -37,21 +38,34 @@ func NewDKGService(
 
 // ExecuteDKG 执行分布式密钥生成
 func (s *DKGService) ExecuteDKG(ctx context.Context, keyID string, req *CreateKeyRequest) (*protocol.KeyGenResponse, error) {
-	// 1. 发现所有活跃的Participant节点
-	participants, err := s.nodeDiscovery.DiscoverNodes(ctx, node.NodeTypeParticipant, node.NodeStatusActive, req.TotalNodes)
+	log.Error().
+		Str("key_id", keyID).
+		Str("algorithm", req.Algorithm).
+		Str("curve", req.Curve).
+		Int("threshold", req.Threshold).
+		Int("total_nodes", req.TotalNodes).
+		Msg("ExecuteDKG: Starting DKG execution")
+
+	// 1. 从DKG会话中获取参与节点列表（DKG会话使用keyID作为sessionID）
+	session, err := s.metadataStore.GetSigningSession(ctx, keyID)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to discover participants")
+		return nil, errors.Wrap(err, "failed to get DKG session")
 	}
 
-	if len(participants) < req.TotalNodes {
-		return nil, errors.Errorf("insufficient active nodes: need %d, have %d", req.TotalNodes, len(participants))
+	// 2. 使用会话中的参与节点列表
+	nodeIDs := session.ParticipatingNodes
+	if len(nodeIDs) == 0 {
+		return nil, errors.New("no participating nodes in DKG session")
 	}
 
-	// 2. 选择参与DKG的节点
-	selectedNodes := participants[:req.TotalNodes]
-	nodeIDs := make([]string, len(selectedNodes))
-	for i, n := range selectedNodes {
-		nodeIDs[i] = n.NodeID
+	log.Error().
+		Str("key_id", keyID).
+		Strs("node_ids", nodeIDs).
+		Int("node_count", len(nodeIDs)).
+		Msg("ExecuteDKG: Retrieved participating nodes from session")
+
+	if len(nodeIDs) < req.Threshold {
+		return nil, errors.Errorf("insufficient participating nodes: need at least %d, have %d", req.Threshold, len(nodeIDs))
 	}
 
 	// 3. 准备DKG请求
@@ -64,11 +78,22 @@ func (s *DKGService) ExecuteDKG(ctx context.Context, keyID string, req *CreateKe
 		NodeIDs:    nodeIDs,
 	}
 
+	log.Error().
+		Str("key_id", keyID).
+		Msg("ExecuteDKG: Calling protocolEngine.GenerateKeyShare")
+
 	// 4. 执行DKG协议
 	dkgResp, err := s.protocolEngine.GenerateKeyShare(ctx, dkgReq)
 	if err != nil {
+		log.Error().Err(err).Str("key_id", keyID).Msg("ExecuteDKG: GenerateKeyShare failed")
 		return nil, errors.Wrap(err, "failed to execute DKG protocol")
 	}
+
+	log.Error().
+		Str("key_id", keyID).
+		Int("key_share_count", len(dkgResp.KeyShares)).
+		Str("public_key", dkgResp.PublicKey.Hex).
+		Msg("ExecuteDKG: GenerateKeyShare completed successfully")
 
 	// 5. 验证生成的密钥分片
 	// 注意：在tss-lib架构中，每个节点只返回自己的KeyShare

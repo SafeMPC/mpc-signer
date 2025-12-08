@@ -2,26 +2,30 @@ package node
 
 import (
 	"context"
-	"math/rand"
-	"time"
+	"fmt"
 
+	"github.com/kashguard/go-mpc-wallet/internal/mpc/discovery"
 	"github.com/kashguard/go-mpc-wallet/internal/mpc/storage"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 // Discovery 节点发现
 type Discovery struct {
-	manager *Manager
+	manager          *Manager
+	discoveryService *discovery.Service // MPC 服务发现服务
 }
 
 // NewDiscovery 创建节点发现器
-func NewDiscovery(manager *Manager) *Discovery {
+func NewDiscovery(manager *Manager, discoveryService *discovery.Service) *Discovery {
 	return &Discovery{
-		manager: manager,
+		manager:          manager,
+		discoveryService: discoveryService,
 	}
 }
 
 // DiscoverNodes 发现节点
+// 优先从数据库查询，如果不足则从 Consul 查询
 func (d *Discovery) DiscoverNodes(ctx context.Context, nodeType NodeType, status NodeStatus, limit int) ([]*Node, error) {
 	filter := &storage.NodeFilter{
 		NodeType: string(nodeType),
@@ -30,69 +34,108 @@ func (d *Discovery) DiscoverNodes(ctx context.Context, nodeType NodeType, status
 		Offset:   0,
 	}
 
+	// 1. 首先从数据库查询
 	nodes, err := d.manager.ListNodes(ctx, filter)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to discover nodes")
+		return nil, errors.Wrap(err, "failed to list nodes from database")
 	}
 
-	return nodes, nil
-}
-
-// SelectParticipatingNodes 选择参与节点（用于签名）
-func (d *Discovery) SelectParticipatingNodes(ctx context.Context, threshold int, totalNodes int) ([]*Node, error) {
-	// 发现所有活跃的Participant节点
-	participants, err := d.DiscoverNodes(ctx, NodeTypeParticipant, NodeStatusActive, totalNodes)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to discover participants")
+	// 2. 如果数据库中有足够的节点，直接返回
+	if len(nodes) >= limit {
+		log.Debug().
+			Int("database_nodes", len(nodes)).
+			Int("required_nodes", limit).
+			Msg("Found sufficient nodes from database")
+		return nodes, nil
 	}
 
-	if len(participants) < threshold {
-		return nil, errors.Errorf("insufficient active nodes: need %d, have %d", threshold, len(participants))
-	}
+	// 3. 如果数据库节点不足，从 Consul 发现（只支持参与者）
+	if nodeType == NodeTypeParticipant && d.discoveryService != nil {
+		log.Debug().
+			Int("database_nodes", len(nodes)).
+			Int("required_nodes", limit).
+			Msg("Database has insufficient nodes, trying Consul discovery")
 
-	// 随机选择达到阈值的节点
-	selected := selectRandomNodes(participants, threshold)
-
-	return selected, nil
-}
-
-// selectRandomNodes 随机选择节点
-func selectRandomNodes(nodes []*Node, count int) []*Node {
-	if count >= len(nodes) {
-		return nodes
-	}
-
-	// 创建副本避免修改原数组
-	copyNodes := make([]*Node, len(nodes))
-	copy(copyNodes, nodes)
-
-	// 随机打乱
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	r.Shuffle(len(copyNodes), func(i, j int) {
-		copyNodes[i], copyNodes[j] = copyNodes[j], copyNodes[i]
-	})
-
-	return copyNodes[:count]
-}
-
-// CheckNodeAvailability 检查节点可用性
-func (d *Discovery) CheckNodeAvailability(ctx context.Context, nodeID string) (bool, error) {
-	node, err := d.manager.GetNode(ctx, nodeID)
-	if err != nil {
-		return false, errors.Wrap(err, "failed to get node")
-	}
-
-	if node.Status != string(NodeStatusActive) {
-		return false, nil
-	}
-
-	// 检查心跳
-	if node.LastHeartbeat != nil {
-		timeSinceHeartbeat := time.Since(*node.LastHeartbeat)
-		if timeSinceHeartbeat > 5*time.Minute {
-			return false, nil // 心跳超时
+		// 从 Consul 发现参与者节点
+		services, err := d.discoveryService.DiscoverParticipants(ctx, limit)
+		if err != nil {
+			// 如果 Consul 发现也失败，返回数据库中的节点（即使不够）
+			log.Warn().
+				Err(err).
+				Int("database_nodes", len(nodes)).
+				Int("required_nodes", limit).
+				Msg("Failed to discover participants from Consul, returning nodes from database")
+			return nodes, nil
 		}
+
+		log.Debug().
+			Int("consul_services", len(services)).
+			Int("required_nodes", limit).
+			Msg("Discovered participants from Consul")
+
+		// 4. 转换 discovery.ServiceInfo → node.Node
+		consulNodes := make([]*Node, 0, len(services))
+		for _, svc := range services {
+			// 从服务信息中提取节点 ID
+			nodeID := discovery.ExtractNodeID(svc)
+			if nodeID == "" {
+				log.Warn().
+					Str("service_id", svc.ID).
+					Strs("tags", svc.Tags).
+					Msg("Failed to extract node ID from service, skipping")
+				continue
+			}
+
+			// 构建 endpoint
+			endpoint := fmt.Sprintf("%s:%d", svc.Address, svc.Port)
+
+			// 转换为 Node
+			consulNode := &Node{
+				NodeID:       nodeID,
+				NodeType:     svc.NodeType,
+				Endpoint:     endpoint,
+				Status:       string(status), // 使用请求的状态
+				Capabilities: []string{},     // Consul 中暂无 capabilities
+				Metadata:     make(map[string]interface{}),
+			}
+
+			// 调试日志：记录转换后的节点信息
+			log.Debug().
+				Str("node_id", consulNode.NodeID).
+				Str("node_type", consulNode.NodeType).
+				Str("endpoint", consulNode.Endpoint).
+				Str("service_id", svc.ID).
+				Strs("service_tags", svc.Tags).
+				Msg("Converted Consul service to Node")
+
+			consulNodes = append(consulNodes, consulNode)
+		}
+
+		// 5. 合并数据库节点和 Consul 节点
+		allNodes := append(nodes, consulNodes...)
+
+		// 6. 去重（基于 nodeID）
+		uniqueNodes := make(map[string]*Node)
+		for _, n := range allNodes {
+			uniqueNodes[n.NodeID] = n
+		}
+
+		// 7. 转换为切片
+		result := make([]*Node, 0, len(uniqueNodes))
+		for _, n := range uniqueNodes {
+			result = append(result, n)
+		}
+
+		log.Debug().
+			Int("total_nodes", len(result)).
+			Int("database_nodes", len(nodes)).
+			Int("consul_nodes", len(consulNodes)).
+			Int("required_nodes", limit).
+			Msg("Merged nodes from database and Consul")
+
+		return result, nil
 	}
 
-	return true, nil
+	// 如果不是参与者节点，或者没有配置服务发现，返回数据库中的节点
+	return nodes, nil
 }

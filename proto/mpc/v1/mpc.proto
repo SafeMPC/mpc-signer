@@ -9,6 +9,9 @@ service MPCNode {
   // 双向流：加入签名会话
   rpc JoinSigningSession(stream SessionMessage) returns (stream SessionMessage);
 
+  // 启动 DKG（由协调者调用参与者）
+  rpc StartDKG(StartDKGRequest) returns (StartDKGResponse);
+
   // 提交签名分片
   rpc SubmitSignatureShare(ShareRequest) returns (ShareResponse);
 
@@ -77,6 +80,22 @@ message ShareResponse {
   bool accepted = 1;
   string message = 2;
   int32 next_round = 3;
+}
+
+// 启动 DKG 请求/响应
+message StartDKGRequest {
+  string session_id = 1; // DKG 会话ID（等于 key_id）
+  string key_id = 2;
+  string algorithm = 3;   // 例：ECDSA
+  string curve = 4;       // 例：secp256k1
+  int32 threshold = 5;
+  int32 total_nodes = 6;
+  repeated string node_ids = 7; // 参与节点列表
+}
+
+message StartDKGResponse {
+  bool started = 1;
+  string message = 2;
 }
 
 // 签名聚合相关消息

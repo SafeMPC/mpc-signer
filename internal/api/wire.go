@@ -54,19 +54,8 @@ var mpcServiceSet = wire.NewSet(
 	NewSigningServiceProvider,
 	NewCoordinatorServiceProvider,
 	NewParticipantServiceProvider,
-	// gRPC services
-	NewGRPCServer,
-	NewGRPCClient,
-	NewNodeService,
-	NewCoordinatorService,
-	NewRegistryService,
-	NewHeartbeatService,
-	NewHeartbeatManager,
 	// Service discovery
-	NewConsulDiscovery,
-	NewServiceRegistry,
-	NewMPCDiscovery,
-	NewLoadBalancer,
+	NewMPCDiscoveryService,
 )
 
 // InitNewServer returns a new Server instance.

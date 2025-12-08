@@ -282,12 +282,14 @@ func TestConvertFROSTKeyData(t *testing.T) {
 			saveData:  nil,
 			nodeIDs:   []string{"node-1", "node-2"},
 			wantError: true,
-			errMsg:    "EDDSAPub is nil",
+			errMsg:    "saveData is nil", // 修正：expect "saveData is nil" instead of "EDDSAPub is nil"
 		},
 		{
 			name:      "empty node IDs",
 			keyID:     "test-key",
-			saveData:  &eddsaKeygen.LocalPartySaveData{},
+			saveData:  &eddsaKeygen.LocalPartySaveData{
+				EDDSAPub: &eddsaKeygen.EDDSAPubKey{}, // Provide dummy EDDSAPub to avoid nil check error
+			},
 			nodeIDs:   []string{},
 			wantError: false, // 应该成功，只是没有 keyShares
 		},
@@ -712,7 +714,7 @@ func TestFROSTKeyDataConversion_EdgeCases(t *testing.T) {
 			require.Error(t, err)
 			assert.Nil(t, keyShares)
 			assert.Nil(t, pubKey)
-			assert.Contains(t, err.Error(), "saveData is nil")
+			assert.Contains(t, err.Error(), "saveData is nil") // 修正预期错误
 		})
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/kashguard/go-mpc-wallet/internal/mpc/protocol"
 	"github.com/kashguard/go-mpc-wallet/internal/mpc/storage"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 // Service 密钥服务
@@ -39,8 +40,11 @@ func NewService(
 
 // CreateKey 创建密钥（执行DKG）
 func (s *Service) CreateKey(ctx context.Context, req *CreateKeyRequest) (*KeyMetadata, error) {
-	// 生成密钥ID
-	keyID := "key-" + uuid.New().String()
+	// 生成密钥ID（如果请求中未提供）
+	keyID := req.KeyID
+	if keyID == "" {
+		keyID = "key-" + uuid.New().String()
+	}
 
 	// 使用DKGService执行DKG（如果可用）
 	var dkgResp *protocol.KeyGenResponse
@@ -114,6 +118,185 @@ func (s *Service) CreateKey(ctx context.Context, req *CreateKeyRequest) (*KeyMet
 
 	if err := s.metadataStore.SaveKeyMetadata(ctx, storageKey); err != nil {
 		return nil, errors.Wrap(err, "failed to save key metadata")
+	}
+
+	return keyMetadata, nil
+}
+
+// CreatePlaceholderKey 创建占位符密钥（不执行DKG，只创建元数据）
+// 用于在DKG会话创建前满足外键约束
+func (s *Service) CreatePlaceholderKey(ctx context.Context, req *CreateKeyRequest) (*KeyMetadata, error) {
+	keyID := req.KeyID
+	if keyID == "" {
+		keyID = "key-" + uuid.New().String()
+	}
+
+	now := time.Now()
+	keyMetadata := &KeyMetadata{
+		KeyID:       keyID,
+		PublicKey:   "pending", // 占位符值，DKG 完成后更新为真实公钥
+		Algorithm:   req.Algorithm,
+		Curve:       req.Curve,
+		Threshold:   req.Threshold,
+		TotalNodes:  req.TotalNodes,
+		ChainType:   req.ChainType,
+		Status:      "Pending", // 占位符状态
+		Description: req.Description,
+		Tags:        req.Tags,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+
+	storageKey := &storage.KeyMetadata{
+		KeyID:        keyMetadata.KeyID,
+		PublicKey:    keyMetadata.PublicKey, // 可以为空字符串，数据库允许
+		Algorithm:    keyMetadata.Algorithm,
+		Curve:        keyMetadata.Curve,
+		Threshold:    keyMetadata.Threshold,
+		TotalNodes:   keyMetadata.TotalNodes,
+		ChainType:    keyMetadata.ChainType,
+		Address:      keyMetadata.Address,
+		Status:       keyMetadata.Status,
+		Description:  keyMetadata.Description,
+		Tags:         keyMetadata.Tags,
+		CreatedAt:    keyMetadata.CreatedAt,
+		UpdatedAt:    keyMetadata.UpdatedAt,
+		DeletionDate: keyMetadata.DeletionDate,
+	}
+
+	if err := s.metadataStore.SaveKeyMetadata(ctx, storageKey); err != nil {
+		return nil, errors.Wrap(err, "failed to save placeholder key metadata")
+	}
+
+	// 使用 log 包记录成功创建占位符密钥
+	log.Error().
+		Str("key_id", keyID).
+		Str("status", keyMetadata.Status).
+		Str("public_key", keyMetadata.PublicKey).
+		Msg("Placeholder key saved to database successfully")
+
+	return keyMetadata, nil
+}
+
+// CreateKeyWithExistingMetadata 在已有占位符密钥的基础上执行DKG并更新密钥
+func (s *Service) CreateKeyWithExistingMetadata(ctx context.Context, req *CreateKeyRequest) (*KeyMetadata, error) {
+	keyID := req.KeyID
+	if keyID == "" {
+		return nil, errors.New("keyID is required for CreateKeyWithExistingMetadata")
+	}
+
+	log.Error().
+		Str("key_id", keyID).
+		Str("algorithm", req.Algorithm).
+		Str("curve", req.Curve).
+		Int("threshold", req.Threshold).
+		Int("total_nodes", req.TotalNodes).
+		Msg("CreateKeyWithExistingMetadata: Starting DKG execution")
+
+	// 检查密钥是否存在
+	existingKey, err := s.metadataStore.GetKeyMetadata(ctx, keyID)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get existing key metadata")
+	}
+	if existingKey.Status != "Pending" {
+		return nil, errors.Errorf("key %s is not in Pending status", keyID)
+	}
+
+	// 执行DKG
+	var dkgResp *protocol.KeyGenResponse
+	if s.dkgService != nil {
+		log.Error().Str("key_id", keyID).Msg("CreateKeyWithExistingMetadata: Calling dkgService.ExecuteDKG")
+		dkgResp, err = s.dkgService.ExecuteDKG(ctx, keyID, req)
+		if err != nil {
+			log.Error().Err(err).Str("key_id", keyID).Msg("CreateKeyWithExistingMetadata: ExecuteDKG failed")
+			return nil, errors.Wrap(err, "failed to execute DKG")
+		}
+		log.Error().Str("key_id", keyID).Msg("CreateKeyWithExistingMetadata: ExecuteDKG completed successfully")
+	} else {
+		dkgReq := &protocol.KeyGenRequest{
+			KeyID:      keyID,
+			Algorithm:  req.Algorithm,
+			Curve:      req.Curve,
+			Threshold:  req.Threshold,
+			TotalNodes: req.TotalNodes,
+			NodeIDs:    []string{},
+		}
+		dkgResp, err = s.protocolEngine.GenerateKeyShare(ctx, dkgReq)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to generate key shares")
+		}
+	}
+
+	// 存储密钥分片
+	for nodeID, share := range dkgResp.KeyShares {
+		if err := s.keyShareStorage.StoreKeyShare(ctx, keyID, nodeID, share.Share); err != nil {
+			return nil, errors.Wrapf(err, "failed to store key share for node %s", nodeID)
+		}
+	}
+
+	// 更新密钥元数据（添加公钥，更新状态为Active）
+	now := time.Now()
+	storageKey := &storage.KeyMetadata{
+		KeyID:        keyID,
+		PublicKey:    dkgResp.PublicKey.Hex,
+		Algorithm:    req.Algorithm,
+		Curve:        req.Curve,
+		Threshold:    req.Threshold,
+		TotalNodes:   req.TotalNodes,
+		ChainType:    req.ChainType,
+		Address:      existingKey.Address, // 保持原有地址（如果有）
+		Status:       "Active",
+		Description:  req.Description,
+		Tags:         req.Tags,
+		CreatedAt:    existingKey.CreatedAt, // 保持原有创建时间
+		UpdatedAt:    now,
+		DeletionDate: existingKey.DeletionDate,
+	}
+
+	// 生成地址（如果需要）
+	if req.ChainType != "" {
+		// 解析公钥
+		pubKeyBytes, err := hex.DecodeString(dkgResp.PublicKey.Hex)
+		if err == nil {
+			// 根据链类型选择适配器
+			var adapter chain.Adapter
+			switch req.ChainType {
+			case "bitcoin", "btc":
+				adapter = chain.NewBitcoinAdapter(&chaincfg.MainNetParams)
+			case "ethereum", "eth", "evm":
+				adapter = chain.NewEthereumAdapter(big.NewInt(1)) // mainnet
+			default:
+				// 不支持的链类型，跳过地址生成
+				adapter = nil
+			}
+			if adapter != nil {
+				address, err := adapter.GenerateAddress(pubKeyBytes)
+				if err == nil {
+					storageKey.Address = address
+				}
+			}
+		}
+	}
+
+	if err := s.metadataStore.UpdateKeyMetadata(ctx, storageKey); err != nil {
+		return nil, errors.Wrap(err, "failed to update key metadata")
+	}
+
+	keyMetadata := &KeyMetadata{
+		KeyID:        storageKey.KeyID,
+		PublicKey:    storageKey.PublicKey,
+		Algorithm:    storageKey.Algorithm,
+		Curve:        storageKey.Curve,
+		Threshold:    storageKey.Threshold,
+		TotalNodes:   storageKey.TotalNodes,
+		ChainType:    storageKey.ChainType,
+		Address:      storageKey.Address,
+		Status:       storageKey.Status,
+		Description:  storageKey.Description,
+		Tags:         storageKey.Tags,
+		CreatedAt:    storageKey.CreatedAt,
+		UpdatedAt:    storageKey.UpdatedAt,
+		DeletionDate: storageKey.DeletionDate,
 	}
 
 	return keyMetadata, nil

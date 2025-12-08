@@ -59,7 +59,11 @@ func InitNewServer(server config.Server) (*Server, error) {
 		return nil, err
 	}
 	engine := NewProtocolEngine(server, grpcClient)
-	discovery := NewNodeDiscovery(manager)
+	discoveryService, err := NewMPCDiscoveryService(server)
+	if err != nil {
+		return nil, err
+	}
+	discovery := NewNodeDiscovery(manager, discoveryService)
 	dkgService := NewDKGServiceProvider(metadataStore, keyShareStorage, engine, manager, discovery)
 	keyService := NewKeyServiceProvider(metadataStore, keyShareStorage, engine, dkgService)
 	client, err := NewRedisClient(server)
@@ -69,30 +73,14 @@ func InitNewServer(server config.Server) (*Server, error) {
 	sessionStore := NewSessionStore(client)
 	sessionManager := NewSessionManager(metadataStore, sessionStore, server)
 	signingService := NewSigningServiceProvider(keyService, engine, sessionManager, discovery)
-	coordinatorService := NewCoordinatorServiceProvider(metadataStore, keyService, signingService, sessionManager, manager, discovery, engine)
+	coordinatorService := NewCoordinatorServiceProvider(server, metadataStore, keyService, signingService, sessionManager, manager, discovery, engine, grpcClient)
 	participantService := NewParticipantServiceProvider(server, keyShareStorage, engine)
 	registry := NewNodeRegistry(manager)
-	grpcServer, err := NewGRPCServer(server)
+	grpcServer, err := NewMPCGRPCServer(server, engine, sessionManager)
 	if err != nil {
 		return nil, err
 	}
-	client2, err := NewGRPCClient(server)
-	if err != nil {
-		return nil, err
-	}
-	nodeService := NewNodeService(server)
-	grpcCoordinatorService := NewCoordinatorService(server)
-	registryService := NewRegistryService()
-	heartbeatService := NewHeartbeatService(server, client2)
-	heartbeatManager := NewHeartbeatManager()
-	serviceDiscovery, err := NewConsulDiscovery(server)
-	if err != nil {
-		return nil, err
-	}
-	serviceRegistry := NewServiceRegistry(serviceDiscovery, server)
-	mpcDiscovery := NewMPCDiscovery(serviceRegistry, manager, discovery)
-	loadBalancer := NewLoadBalancer()
-	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService, keyService, signingService, coordinatorService, participantService, manager, registry, discovery, sessionManager, grpcServer, client2, nodeService, grpcCoordinatorService, registryService, heartbeatService, heartbeatManager, serviceDiscovery, serviceRegistry, mpcDiscovery, loadBalancer)
+	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService, keyService, signingService, coordinatorService, participantService, manager, registry, discovery, sessionManager, grpcServer, grpcClient, discoveryService)
 	return apiServer, nil
 }
 
@@ -129,7 +117,11 @@ func InitNewServerWithDB(server config.Server, db *sql.DB, t ...*testing.T) (*Se
 		return nil, err
 	}
 	engine := NewProtocolEngine(server, grpcClient)
-	discovery := NewNodeDiscovery(manager)
+	discoveryService, err := NewMPCDiscoveryService(server)
+	if err != nil {
+		return nil, err
+	}
+	discovery := NewNodeDiscovery(manager, discoveryService)
 	dkgService := NewDKGServiceProvider(metadataStore, keyShareStorage, engine, manager, discovery)
 	keyService := NewKeyServiceProvider(metadataStore, keyShareStorage, engine, dkgService)
 	client, err := NewRedisClient(server)
@@ -139,30 +131,14 @@ func InitNewServerWithDB(server config.Server, db *sql.DB, t ...*testing.T) (*Se
 	sessionStore := NewSessionStore(client)
 	sessionManager := NewSessionManager(metadataStore, sessionStore, server)
 	signingService := NewSigningServiceProvider(keyService, engine, sessionManager, discovery)
-	coordinatorService := NewCoordinatorServiceProvider(metadataStore, keyService, signingService, sessionManager, manager, discovery, engine)
+	coordinatorService := NewCoordinatorServiceProvider(server, metadataStore, keyService, signingService, sessionManager, manager, discovery, engine, grpcClient)
 	participantService := NewParticipantServiceProvider(server, keyShareStorage, engine)
 	registry := NewNodeRegistry(manager)
-	grpcServer, err := NewGRPCServer(server)
+	grpcServer, err := NewMPCGRPCServer(server, engine, sessionManager)
 	if err != nil {
 		return nil, err
 	}
-	client2, err := NewGRPCClient(server)
-	if err != nil {
-		return nil, err
-	}
-	nodeService := NewNodeService(server)
-	grpcCoordinatorService := NewCoordinatorService(server)
-	registryService := NewRegistryService()
-	heartbeatService := NewHeartbeatService(server, client2)
-	heartbeatManager := NewHeartbeatManager()
-	serviceDiscovery, err := NewConsulDiscovery(server)
-	if err != nil {
-		return nil, err
-	}
-	serviceRegistry := NewServiceRegistry(serviceDiscovery, server)
-	mpcDiscovery := NewMPCDiscovery(serviceRegistry, manager, discovery)
-	loadBalancer := NewLoadBalancer()
-	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService, keyService, signingService, coordinatorService, participantService, manager, registry, discovery, sessionManager, grpcServer, client2, nodeService, grpcCoordinatorService, registryService, heartbeatService, heartbeatManager, serviceDiscovery, serviceRegistry, mpcDiscovery, loadBalancer)
+	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService, keyService, signingService, coordinatorService, participantService, manager, registry, discovery, sessionManager, grpcServer, grpcClient, discoveryService)
 	return apiServer, nil
 }
 
@@ -202,16 +178,5 @@ var mpcServiceSet = wire.NewSet(
 	NewCoordinatorServiceProvider,
 	NewParticipantServiceProvider,
 
-	NewGRPCServer,
-	NewGRPCClient,
-	NewNodeService,
-	NewCoordinatorService,
-	NewRegistryService,
-	NewHeartbeatService,
-	NewHeartbeatManager,
-
-	NewConsulDiscovery,
-	NewServiceRegistry,
-	NewMPCDiscovery,
-	NewLoadBalancer,
+	NewMPCDiscoveryService,
 )

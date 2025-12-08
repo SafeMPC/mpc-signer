@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        v3.19.4
-// source: mpc/v1/registry.proto
+// source: proto/mpc/v1/registry.proto
 
 package v1
 
@@ -34,7 +34,7 @@ type RegisterRequest struct {
 
 func (x *RegisterRequest) Reset() {
 	*x = RegisterRequest{}
-	mi := &file_mpc_v1_registry_proto_msgTypes[0]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -46,7 +46,7 @@ func (x *RegisterRequest) String() string {
 func (*RegisterRequest) ProtoMessage() {}
 
 func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_registry_proto_msgTypes[0]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -59,7 +59,7 @@ func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterRequest.ProtoReflect.Descriptor instead.
 func (*RegisterRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_registry_proto_rawDescGZIP(), []int{0}
+	return file_proto_mpc_v1_registry_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *RegisterRequest) GetNode() *NodeInfo {
@@ -102,7 +102,7 @@ type RegisterResponse struct {
 
 func (x *RegisterResponse) Reset() {
 	*x = RegisterResponse{}
-	mi := &file_mpc_v1_registry_proto_msgTypes[1]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -114,7 +114,7 @@ func (x *RegisterResponse) String() string {
 func (*RegisterResponse) ProtoMessage() {}
 
 func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_registry_proto_msgTypes[1]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -127,7 +127,7 @@ func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterResponse.ProtoReflect.Descriptor instead.
 func (*RegisterResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_registry_proto_rawDescGZIP(), []int{1}
+	return file_proto_mpc_v1_registry_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *RegisterResponse) GetSuccess() bool {
@@ -167,7 +167,7 @@ type UnregisterRequest struct {
 
 func (x *UnregisterRequest) Reset() {
 	*x = UnregisterRequest{}
-	mi := &file_mpc_v1_registry_proto_msgTypes[2]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -179,7 +179,7 @@ func (x *UnregisterRequest) String() string {
 func (*UnregisterRequest) ProtoMessage() {}
 
 func (x *UnregisterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_registry_proto_msgTypes[2]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -192,7 +192,7 @@ func (x *UnregisterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnregisterRequest.ProtoReflect.Descriptor instead.
 func (*UnregisterRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_registry_proto_rawDescGZIP(), []int{2}
+	return file_proto_mpc_v1_registry_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *UnregisterRequest) GetNodeId() string {
@@ -212,7 +212,7 @@ type UnregisterResponse struct {
 
 func (x *UnregisterResponse) Reset() {
 	*x = UnregisterResponse{}
-	mi := &file_mpc_v1_registry_proto_msgTypes[3]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -224,7 +224,7 @@ func (x *UnregisterResponse) String() string {
 func (*UnregisterResponse) ProtoMessage() {}
 
 func (x *UnregisterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_registry_proto_msgTypes[3]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -237,7 +237,7 @@ func (x *UnregisterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnregisterResponse.ProtoReflect.Descriptor instead.
 func (*UnregisterResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_registry_proto_rawDescGZIP(), []int{3}
+	return file_proto_mpc_v1_registry_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *UnregisterResponse) GetSuccess() bool {
@@ -268,7 +268,7 @@ type DiscoveryRequest struct {
 
 func (x *DiscoveryRequest) Reset() {
 	*x = DiscoveryRequest{}
-	mi := &file_mpc_v1_registry_proto_msgTypes[4]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -280,7 +280,7 @@ func (x *DiscoveryRequest) String() string {
 func (*DiscoveryRequest) ProtoMessage() {}
 
 func (x *DiscoveryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_registry_proto_msgTypes[4]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -293,7 +293,7 @@ func (x *DiscoveryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscoveryRequest.ProtoReflect.Descriptor instead.
 func (*DiscoveryRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_registry_proto_rawDescGZIP(), []int{4}
+	return file_proto_mpc_v1_registry_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *DiscoveryRequest) GetNodeType() string {
@@ -341,7 +341,7 @@ type DiscoveryResponse struct {
 
 func (x *DiscoveryResponse) Reset() {
 	*x = DiscoveryResponse{}
-	mi := &file_mpc_v1_registry_proto_msgTypes[5]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -353,7 +353,7 @@ func (x *DiscoveryResponse) String() string {
 func (*DiscoveryResponse) ProtoMessage() {}
 
 func (x *DiscoveryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_registry_proto_msgTypes[5]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -366,7 +366,7 @@ func (x *DiscoveryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscoveryResponse.ProtoReflect.Descriptor instead.
 func (*DiscoveryResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_registry_proto_rawDescGZIP(), []int{5}
+	return file_proto_mpc_v1_registry_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *DiscoveryResponse) GetNodes() []*NodeInfo {
@@ -393,7 +393,7 @@ type NodeInfoRequest struct {
 
 func (x *NodeInfoRequest) Reset() {
 	*x = NodeInfoRequest{}
-	mi := &file_mpc_v1_registry_proto_msgTypes[6]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -405,7 +405,7 @@ func (x *NodeInfoRequest) String() string {
 func (*NodeInfoRequest) ProtoMessage() {}
 
 func (x *NodeInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_registry_proto_msgTypes[6]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -418,7 +418,7 @@ func (x *NodeInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeInfoRequest.ProtoReflect.Descriptor instead.
 func (*NodeInfoRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_registry_proto_rawDescGZIP(), []int{6}
+	return file_proto_mpc_v1_registry_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *NodeInfoRequest) GetNodeId() string {
@@ -438,7 +438,7 @@ type NodeInfoResponse struct {
 
 func (x *NodeInfoResponse) Reset() {
 	*x = NodeInfoResponse{}
-	mi := &file_mpc_v1_registry_proto_msgTypes[7]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -450,7 +450,7 @@ func (x *NodeInfoResponse) String() string {
 func (*NodeInfoResponse) ProtoMessage() {}
 
 func (x *NodeInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_registry_proto_msgTypes[7]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -463,7 +463,7 @@ func (x *NodeInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeInfoResponse.ProtoReflect.Descriptor instead.
 func (*NodeInfoResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_registry_proto_rawDescGZIP(), []int{7}
+	return file_proto_mpc_v1_registry_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *NodeInfoResponse) GetNode() *NodeInfo {
@@ -491,7 +491,7 @@ type HealthCheckRequest struct {
 
 func (x *HealthCheckRequest) Reset() {
 	*x = HealthCheckRequest{}
-	mi := &file_mpc_v1_registry_proto_msgTypes[8]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -503,7 +503,7 @@ func (x *HealthCheckRequest) String() string {
 func (*HealthCheckRequest) ProtoMessage() {}
 
 func (x *HealthCheckRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_registry_proto_msgTypes[8]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -516,7 +516,7 @@ func (x *HealthCheckRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthCheckRequest.ProtoReflect.Descriptor instead.
 func (*HealthCheckRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_registry_proto_rawDescGZIP(), []int{8}
+	return file_proto_mpc_v1_registry_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *HealthCheckRequest) GetNodeId() string {
@@ -546,7 +546,7 @@ type HealthCheckResponse struct {
 
 func (x *HealthCheckResponse) Reset() {
 	*x = HealthCheckResponse{}
-	mi := &file_mpc_v1_registry_proto_msgTypes[9]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -558,7 +558,7 @@ func (x *HealthCheckResponse) String() string {
 func (*HealthCheckResponse) ProtoMessage() {}
 
 func (x *HealthCheckResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_registry_proto_msgTypes[9]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -571,7 +571,7 @@ func (x *HealthCheckResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthCheckResponse.ProtoReflect.Descriptor instead.
 func (*HealthCheckResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_registry_proto_rawDescGZIP(), []int{9}
+	return file_proto_mpc_v1_registry_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *HealthCheckResponse) GetHealthy() bool {
@@ -621,7 +621,7 @@ type WatchRequest struct {
 
 func (x *WatchRequest) Reset() {
 	*x = WatchRequest{}
-	mi := &file_mpc_v1_registry_proto_msgTypes[10]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -633,7 +633,7 @@ func (x *WatchRequest) String() string {
 func (*WatchRequest) ProtoMessage() {}
 
 func (x *WatchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_registry_proto_msgTypes[10]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -646,7 +646,7 @@ func (x *WatchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchRequest.ProtoReflect.Descriptor instead.
 func (*WatchRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_registry_proto_rawDescGZIP(), []int{10}
+	return file_proto_mpc_v1_registry_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *WatchRequest) GetNodeType() string {
@@ -682,7 +682,7 @@ type WatchResponse struct {
 
 func (x *WatchResponse) Reset() {
 	*x = WatchResponse{}
-	mi := &file_mpc_v1_registry_proto_msgTypes[11]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -694,7 +694,7 @@ func (x *WatchResponse) String() string {
 func (*WatchResponse) ProtoMessage() {}
 
 func (x *WatchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_registry_proto_msgTypes[11]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -707,7 +707,7 @@ func (x *WatchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchResponse.ProtoReflect.Descriptor instead.
 func (*WatchResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_registry_proto_rawDescGZIP(), []int{11}
+	return file_proto_mpc_v1_registry_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *WatchResponse) GetEventType() string {
@@ -760,7 +760,7 @@ type ExtendedNodeInfo struct {
 
 func (x *ExtendedNodeInfo) Reset() {
 	*x = ExtendedNodeInfo{}
-	mi := &file_mpc_v1_registry_proto_msgTypes[12]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -772,7 +772,7 @@ func (x *ExtendedNodeInfo) String() string {
 func (*ExtendedNodeInfo) ProtoMessage() {}
 
 func (x *ExtendedNodeInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_registry_proto_msgTypes[12]
+	mi := &file_proto_mpc_v1_registry_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -785,7 +785,7 @@ func (x *ExtendedNodeInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExtendedNodeInfo.ProtoReflect.Descriptor instead.
 func (*ExtendedNodeInfo) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_registry_proto_rawDescGZIP(), []int{12}
+	return file_proto_mpc_v1_registry_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ExtendedNodeInfo) GetNodeId() string {
@@ -879,11 +879,11 @@ func (x *ExtendedNodeInfo) GetHealthStatus() *HealthStatus {
 	return nil
 }
 
-var File_mpc_v1_registry_proto protoreflect.FileDescriptor
+var File_proto_mpc_v1_registry_proto protoreflect.FileDescriptor
 
-const file_mpc_v1_registry_proto_rawDesc = "" +
+const file_proto_mpc_v1_registry_proto_rawDesc = "" +
 	"\n" +
-	"\x15mpc/v1/registry.proto\x12\x06mpc.v1\x1a\x13mpc/v1/common.proto\"\xf6\x01\n" +
+	"\x1bproto/mpc/v1/registry.proto\x12\x06mpc.v1\x1a\x19proto/mpc/v1/common.proto\"\xf6\x01\n" +
 	"\x0fRegisterRequest\x12$\n" +
 	"\x04node\x18\x01 \x01(\v2\x10.mpc.v1.NodeInfoR\x04node\x12\"\n" +
 	"\fcapabilities\x18\x02 \x03(\tR\fcapabilities\x12)\n" +
@@ -973,19 +973,19 @@ const file_mpc_v1_registry_proto_rawDesc = "" +
 	"WatchNodes\x12\x14.mpc.v1.WatchRequest\x1a\x15.mpc.v1.WatchResponse0\x01B7Z5github.com/kashguard/go-mpc-wallet/internal/pb/mpc/v1b\x06proto3"
 
 var (
-	file_mpc_v1_registry_proto_rawDescOnce sync.Once
-	file_mpc_v1_registry_proto_rawDescData []byte
+	file_proto_mpc_v1_registry_proto_rawDescOnce sync.Once
+	file_proto_mpc_v1_registry_proto_rawDescData []byte
 )
 
-func file_mpc_v1_registry_proto_rawDescGZIP() []byte {
-	file_mpc_v1_registry_proto_rawDescOnce.Do(func() {
-		file_mpc_v1_registry_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_mpc_v1_registry_proto_rawDesc), len(file_mpc_v1_registry_proto_rawDesc)))
+func file_proto_mpc_v1_registry_proto_rawDescGZIP() []byte {
+	file_proto_mpc_v1_registry_proto_rawDescOnce.Do(func() {
+		file_proto_mpc_v1_registry_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_mpc_v1_registry_proto_rawDesc), len(file_proto_mpc_v1_registry_proto_rawDesc)))
 	})
-	return file_mpc_v1_registry_proto_rawDescData
+	return file_proto_mpc_v1_registry_proto_rawDescData
 }
 
-var file_mpc_v1_registry_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
-var file_mpc_v1_registry_proto_goTypes = []any{
+var file_proto_mpc_v1_registry_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_proto_mpc_v1_registry_proto_goTypes = []any{
 	(*RegisterRequest)(nil),     // 0: mpc.v1.RegisterRequest
 	(*RegisterResponse)(nil),    // 1: mpc.v1.RegisterResponse
 	(*UnregisterRequest)(nil),   // 2: mpc.v1.UnregisterRequest
@@ -1006,7 +1006,7 @@ var file_mpc_v1_registry_proto_goTypes = []any{
 	(*NodeInfo)(nil),            // 17: mpc.v1.NodeInfo
 	(*HealthStatus)(nil),        // 18: mpc.v1.HealthStatus
 }
-var file_mpc_v1_registry_proto_depIdxs = []int32{
+var file_proto_mpc_v1_registry_proto_depIdxs = []int32{
 	17, // 0: mpc.v1.RegisterRequest.node:type_name -> mpc.v1.NodeInfo
 	13, // 1: mpc.v1.RegisterRequest.tags:type_name -> mpc.v1.RegisterRequest.TagsEntry
 	17, // 2: mpc.v1.DiscoveryResponse.nodes:type_name -> mpc.v1.NodeInfo
@@ -1036,27 +1036,27 @@ var file_mpc_v1_registry_proto_depIdxs = []int32{
 	0,  // [0:10] is the sub-list for field type_name
 }
 
-func init() { file_mpc_v1_registry_proto_init() }
-func file_mpc_v1_registry_proto_init() {
-	if File_mpc_v1_registry_proto != nil {
+func init() { file_proto_mpc_v1_registry_proto_init() }
+func file_proto_mpc_v1_registry_proto_init() {
+	if File_proto_mpc_v1_registry_proto != nil {
 		return
 	}
-	file_mpc_v1_common_proto_init()
+	file_proto_mpc_v1_common_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mpc_v1_registry_proto_rawDesc), len(file_mpc_v1_registry_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_mpc_v1_registry_proto_rawDesc), len(file_proto_mpc_v1_registry_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_mpc_v1_registry_proto_goTypes,
-		DependencyIndexes: file_mpc_v1_registry_proto_depIdxs,
-		MessageInfos:      file_mpc_v1_registry_proto_msgTypes,
+		GoTypes:           file_proto_mpc_v1_registry_proto_goTypes,
+		DependencyIndexes: file_proto_mpc_v1_registry_proto_depIdxs,
+		MessageInfos:      file_proto_mpc_v1_registry_proto_msgTypes,
 	}.Build()
-	File_mpc_v1_registry_proto = out.File
-	file_mpc_v1_registry_proto_goTypes = nil
-	file_mpc_v1_registry_proto_depIdxs = nil
+	File_proto_mpc_v1_registry_proto = out.File
+	file_proto_mpc_v1_registry_proto_goTypes = nil
+	file_proto_mpc_v1_registry_proto_depIdxs = nil
 }

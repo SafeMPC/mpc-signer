@@ -181,11 +181,18 @@ func TestExecuteEdDSASigning_ContextCancellation(t *testing.T) {
 	// 创建一个最小的 keyData（需要有效的 Ks）
 	// 注意：由于 eddsaSigning.NewLocalParty 会调用 BuildLocalSaveDataSubset，
 	// 需要有效的 keyData，否则会 panic
-	// 这里我们使用 recover 来捕获 panic，或者跳过需要真实 keyData 的测试
+	// 我们需要确保 KeyData 中的 ShareID 与 setupPartyIDs 生成的 ID 匹配
+	// setupPartyIDs 使用 sha256(nodeID) 作为 uniqueKey
 	keyData := eddsaKeygen.NewLocalPartySaveData(2)
+	
+	// 计算 node-1 的 hash (uniqueKey)
+	hash := sha256.Sum256([]byte("node-1"))
+	uniqueKey := new(big.Int).SetBytes(hash[:])
+	
+	keyData.ShareID = uniqueKey // 设置当前节点的 ShareID
 	keyData.Ks = []*big.Int{
-		big.NewInt(1),
-		big.NewInt(2),
+		uniqueKey,
+		big.NewInt(2), // 另一个假 ID
 	}
 
 	// 设置 PartyID

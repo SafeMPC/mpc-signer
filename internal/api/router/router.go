@@ -240,12 +240,8 @@ func Init(s *api.Server) error {
 		APIV1MPC:  s.Echo.Group("/api/v1/mpc", middleware.Auth(s)),
 	}
 
-	// 注册健康检查路由
-	if s.GRPCServer != nil {
-		if healthChecker := s.GRPCServer.GetHealthChecker(); healthChecker != nil {
-			healthChecker.RegisterRoutes(s.Echo)
-		}
-	}
+	// 注册健康检查路由（已移除旧的 internal/grpc 实现）
+	// MPC gRPC 服务器的健康检查通过 Consul TCP 检查实现
 
 	// ---
 	// Finally attach our handlers

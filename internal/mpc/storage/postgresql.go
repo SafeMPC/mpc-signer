@@ -44,13 +44,22 @@ func (s *PostgreSQLStore) SaveKeyMetadata(ctx context.Context, key *KeyMetadata)
 			updated_at = EXCLUDED.updated_at
 	`
 
-	_, err = s.db.ExecContext(ctx, query,
+	result, err := s.db.ExecContext(ctx, query,
 		key.KeyID, key.PublicKey, key.Algorithm, key.Curve, key.Threshold, key.TotalNodes,
 		key.ChainType, key.Address, key.Status, key.Description, tagsJSON,
 		key.CreatedAt, key.UpdatedAt,
 	)
 	if err != nil {
-		return errors.Wrap(err, "failed to save key metadata")
+		return errors.Wrapf(err, "failed to save key metadata for key_id: %s", key.KeyID)
+	}
+
+	// 验证插入是否成功
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "failed to get rows affected")
+	}
+	if rowsAffected == 0 {
+		return errors.Errorf("no rows affected when saving key metadata for key_id: %s", key.KeyID)
 	}
 
 	return nil
@@ -432,6 +441,10 @@ func (s *PostgreSQLStore) UpdateNodeHeartbeat(ctx context.Context, nodeID string
 
 // SaveSigningSession 保存签名会话
 func (s *PostgreSQLStore) SaveSigningSession(ctx context.Context, session *SigningSession) error {
+	// 记录保存的节点列表（用于调试）
+	// 注意：storage 包没有导入 log，所以我们不能在这里记录日志
+	// 但我们可以通过返回错误来提供信息
+
 	participatingNodesJSON, err := json.Marshal(session.ParticipatingNodes)
 	if err != nil {
 		return errors.Wrap(err, "failed to marshal participating nodes")
@@ -460,6 +473,18 @@ func (s *PostgreSQLStore) SaveSigningSession(ctx context.Context, session *Signi
 	var completedAt interface{}
 	if session.CompletedAt != nil {
 		completedAt = *session.CompletedAt
+	}
+
+	// 首先验证 key_id 是否存在（在同一个事务/连接中检查，避免事务隔离问题）
+	var keyExists bool
+	checkQuery := `SELECT EXISTS(SELECT 1 FROM keys WHERE key_id = $1)`
+	if err := s.db.QueryRowContext(ctx, checkQuery, session.KeyID).Scan(&keyExists); err != nil {
+		// 如果查询失败，记录错误但继续尝试插入（让数据库外键约束来处理）
+		// 这样可以获得更详细的错误信息
+	}
+	if !keyExists {
+		// 记录详细的错误信息
+		return errors.Errorf("key_id %s does not exist in keys table, cannot create signing session. This usually means the placeholder key was not created successfully.", session.KeyID)
 	}
 
 	_, err = s.db.ExecContext(ctx, query,

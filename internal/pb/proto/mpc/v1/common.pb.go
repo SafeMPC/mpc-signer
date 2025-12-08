@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        v3.19.4
-// source: mpc/v1/common.proto
+// source: proto/mpc/v1/common.proto
 
 package v1
 
@@ -37,7 +37,7 @@ type NodeInfo struct {
 
 func (x *NodeInfo) Reset() {
 	*x = NodeInfo{}
-	mi := &file_mpc_v1_common_proto_msgTypes[0]
+	mi := &file_proto_mpc_v1_common_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -49,7 +49,7 @@ func (x *NodeInfo) String() string {
 func (*NodeInfo) ProtoMessage() {}
 
 func (x *NodeInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_common_proto_msgTypes[0]
+	mi := &file_proto_mpc_v1_common_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -62,7 +62,7 @@ func (x *NodeInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeInfo.ProtoReflect.Descriptor instead.
 func (*NodeInfo) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_common_proto_rawDescGZIP(), []int{0}
+	return file_proto_mpc_v1_common_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *NodeInfo) GetNodeId() string {
@@ -125,7 +125,7 @@ type HealthStatus struct {
 
 func (x *HealthStatus) Reset() {
 	*x = HealthStatus{}
-	mi := &file_mpc_v1_common_proto_msgTypes[1]
+	mi := &file_proto_mpc_v1_common_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -137,7 +137,7 @@ func (x *HealthStatus) String() string {
 func (*HealthStatus) ProtoMessage() {}
 
 func (x *HealthStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_common_proto_msgTypes[1]
+	mi := &file_proto_mpc_v1_common_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -150,7 +150,7 @@ func (x *HealthStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthStatus.ProtoReflect.Descriptor instead.
 func (*HealthStatus) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_common_proto_rawDescGZIP(), []int{1}
+	return file_proto_mpc_v1_common_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *HealthStatus) GetOverallHealthy() bool {
@@ -186,7 +186,7 @@ type HealthCheck struct {
 
 func (x *HealthCheck) Reset() {
 	*x = HealthCheck{}
-	mi := &file_mpc_v1_common_proto_msgTypes[2]
+	mi := &file_proto_mpc_v1_common_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -198,7 +198,7 @@ func (x *HealthCheck) String() string {
 func (*HealthCheck) ProtoMessage() {}
 
 func (x *HealthCheck) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_common_proto_msgTypes[2]
+	mi := &file_proto_mpc_v1_common_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -211,7 +211,7 @@ func (x *HealthCheck) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthCheck.ProtoReflect.Descriptor instead.
 func (*HealthCheck) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_common_proto_rawDescGZIP(), []int{2}
+	return file_proto_mpc_v1_common_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *HealthCheck) GetName() string {
@@ -242,11 +242,11 @@ func (x *HealthCheck) GetCheckedAt() string {
 	return ""
 }
 
-var File_mpc_v1_common_proto protoreflect.FileDescriptor
+var File_proto_mpc_v1_common_proto protoreflect.FileDescriptor
 
-const file_mpc_v1_common_proto_rawDesc = "" +
+const file_proto_mpc_v1_common_proto_rawDesc = "" +
 	"\n" +
-	"\x13mpc/v1/common.proto\x12\x06mpc.v1\"\xbb\x02\n" +
+	"\x19proto/mpc/v1/common.proto\x12\x06mpc.v1\"\xbb\x02\n" +
 	"\bNodeInfo\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x1b\n" +
 	"\tnode_type\x18\x02 \x01(\tR\bnodeType\x12\x1a\n" +
@@ -270,25 +270,25 @@ const file_mpc_v1_common_proto_rawDesc = "" +
 	"checked_at\x18\x04 \x01(\tR\tcheckedAtB7Z5github.com/kashguard/go-mpc-wallet/internal/pb/mpc/v1b\x06proto3"
 
 var (
-	file_mpc_v1_common_proto_rawDescOnce sync.Once
-	file_mpc_v1_common_proto_rawDescData []byte
+	file_proto_mpc_v1_common_proto_rawDescOnce sync.Once
+	file_proto_mpc_v1_common_proto_rawDescData []byte
 )
 
-func file_mpc_v1_common_proto_rawDescGZIP() []byte {
-	file_mpc_v1_common_proto_rawDescOnce.Do(func() {
-		file_mpc_v1_common_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_mpc_v1_common_proto_rawDesc), len(file_mpc_v1_common_proto_rawDesc)))
+func file_proto_mpc_v1_common_proto_rawDescGZIP() []byte {
+	file_proto_mpc_v1_common_proto_rawDescOnce.Do(func() {
+		file_proto_mpc_v1_common_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_mpc_v1_common_proto_rawDesc), len(file_proto_mpc_v1_common_proto_rawDesc)))
 	})
-	return file_mpc_v1_common_proto_rawDescData
+	return file_proto_mpc_v1_common_proto_rawDescData
 }
 
-var file_mpc_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
-var file_mpc_v1_common_proto_goTypes = []any{
+var file_proto_mpc_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_proto_mpc_v1_common_proto_goTypes = []any{
 	(*NodeInfo)(nil),     // 0: mpc.v1.NodeInfo
 	(*HealthStatus)(nil), // 1: mpc.v1.HealthStatus
 	(*HealthCheck)(nil),  // 2: mpc.v1.HealthCheck
 	nil,                  // 3: mpc.v1.NodeInfo.MetadataEntry
 }
-var file_mpc_v1_common_proto_depIdxs = []int32{
+var file_proto_mpc_v1_common_proto_depIdxs = []int32{
 	3, // 0: mpc.v1.NodeInfo.metadata:type_name -> mpc.v1.NodeInfo.MetadataEntry
 	2, // 1: mpc.v1.HealthStatus.checks:type_name -> mpc.v1.HealthCheck
 	2, // [2:2] is the sub-list for method output_type
@@ -298,26 +298,26 @@ var file_mpc_v1_common_proto_depIdxs = []int32{
 	0, // [0:2] is the sub-list for field type_name
 }
 
-func init() { file_mpc_v1_common_proto_init() }
-func file_mpc_v1_common_proto_init() {
-	if File_mpc_v1_common_proto != nil {
+func init() { file_proto_mpc_v1_common_proto_init() }
+func file_proto_mpc_v1_common_proto_init() {
+	if File_proto_mpc_v1_common_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mpc_v1_common_proto_rawDesc), len(file_mpc_v1_common_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_mpc_v1_common_proto_rawDesc), len(file_proto_mpc_v1_common_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_mpc_v1_common_proto_goTypes,
-		DependencyIndexes: file_mpc_v1_common_proto_depIdxs,
-		MessageInfos:      file_mpc_v1_common_proto_msgTypes,
+		GoTypes:           file_proto_mpc_v1_common_proto_goTypes,
+		DependencyIndexes: file_proto_mpc_v1_common_proto_depIdxs,
+		MessageInfos:      file_proto_mpc_v1_common_proto_msgTypes,
 	}.Build()
-	File_mpc_v1_common_proto = out.File
-	file_mpc_v1_common_proto_goTypes = nil
-	file_mpc_v1_common_proto_depIdxs = nil
+	File_proto_mpc_v1_common_proto = out.File
+	file_proto_mpc_v1_common_proto_goTypes = nil
+	file_proto_mpc_v1_common_proto_depIdxs = nil
 }

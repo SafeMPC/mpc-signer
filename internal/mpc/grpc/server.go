@@ -1,0 +1,413 @@
+package grpc
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/kashguard/go-mpc-wallet/internal/config"
+	"github.com/kashguard/go-mpc-wallet/internal/mpc/protocol"
+	"github.com/kashguard/go-mpc-wallet/internal/mpc/session"
+	pb "github.com/kashguard/go-mpc-wallet/internal/pb/mpc/v1"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
+)
+
+// GRPCServer gRPC服务端，用于接收节点间消息
+type GRPCServer struct {
+	pb.UnimplementedMPCNodeServer
+
+	protocolEngine protocol.Engine
+	sessionManager *session.Manager
+	nodeID         string
+	cfg            *ServerConfig
+
+	// gRPC 服务器实例
+	grpcServer *grpc.Server
+	listener   net.Listener
+
+	// 用于确保每个DKG会话只启动一次
+	dkgStartOnce sync.Map // map[string]*sync.Once
+}
+
+// ServerConfig gRPC服务端配置
+type ServerConfig struct {
+	Port          int
+	TLSEnabled    bool
+	TLSCertFile   string
+	TLSKeyFile    string
+	TLSCACertFile string
+	MaxConnAge    time.Duration
+	KeepAlive     time.Duration
+}
+
+// NewGRPCServer 创建gRPC服务端
+func NewGRPCServer(
+	cfg config.Server,
+	protocolEngine protocol.Engine,
+	sessionManager *session.Manager,
+	nodeID string,
+) *GRPCServer {
+	serverCfg := &ServerConfig{
+		Port:       cfg.MPC.GRPCPort,
+		TLSEnabled: cfg.MPC.TLSEnabled,
+		MaxConnAge: 2 * time.Hour,
+		KeepAlive:  30 * time.Second,
+	}
+
+	srv := &GRPCServer{
+		protocolEngine: protocolEngine,
+		sessionManager: sessionManager,
+		nodeID:         nodeID,
+		cfg:            serverCfg,
+	}
+
+	return srv
+}
+
+// GetServerOptions 获取gRPC服务器选项
+func (s *GRPCServer) GetServerOptions() ([]grpc.ServerOption, error) {
+	var opts []grpc.ServerOption
+
+	// TLS配置
+	if s.cfg.TLSEnabled {
+		creds, err := credentials.NewServerTLSFromFile(s.cfg.TLSCertFile, s.cfg.TLSKeyFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load TLS credentials")
+		}
+		opts = append(opts, grpc.Creds(creds))
+	}
+
+	// KeepAlive配置
+	opts = append(opts, grpc.KeepaliveParams(keepalive.ServerParameters{
+		MaxConnectionAge:      s.cfg.MaxConnAge,
+		MaxConnectionAgeGrace: 30 * time.Second,
+		Time:                  s.cfg.KeepAlive,
+		Timeout:               20 * time.Second,
+	}))
+
+	// Enforcement Policy (防止 too_many_pings)
+	opts = append(opts, grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+		MinTime:             10 * time.Second, // 允许客户端每 10s ping 一次
+		PermitWithoutStream: true,             // 允许无流时的 ping
+	}))
+
+	// 最大消息大小
+	opts = append(opts, grpc.MaxRecvMsgSize(10*1024*1024)) // 10MB
+	opts = append(opts, grpc.MaxSendMsgSize(10*1024*1024)) // 10MB
+
+	return opts, nil
+}
+
+// JoinSigningSession 双向流：加入签名会话
+func (s *GRPCServer) JoinSigningSession(stream grpc.BidiStreamingServer[pb.SessionMessage, pb.SessionMessage]) error {
+	ctx := stream.Context()
+	var sessionID string
+
+	// 接收初始加入请求
+	req, err := stream.Recv()
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed to receive join request: %v", err)
+	}
+
+	// 处理加入请求
+	joinReq := req.GetJoinRequest()
+	if joinReq == nil {
+		return status.Error(codes.InvalidArgument, "first message must be a join request")
+	}
+
+	sessionID = joinReq.SessionId
+
+	// 验证会话
+	sess, err := s.sessionManager.GetSession(ctx, sessionID)
+	if err != nil {
+		return status.Errorf(codes.NotFound, "session not found: %v", err)
+	}
+
+	// 发送确认消息
+	confirmation := &pb.SessionConfirmation{
+		SessionId:    sessionID,
+		Status:       sess.Status,
+		Threshold:    int32(sess.Threshold),
+		TotalNodes:   int32(sess.TotalNodes),
+		Participants: sess.ParticipatingNodes,
+		CurrentRound: int32(sess.CurrentRound),
+		ConfirmedAt:  time.Now().Format(time.RFC3339),
+	}
+
+	if err := stream.Send(&pb.SessionMessage{
+		MessageType: &pb.SessionMessage_Confirmation{
+			Confirmation: confirmation,
+		},
+	}); err != nil {
+		return status.Errorf(codes.Internal, "failed to send confirmation: %v", err)
+	}
+
+	// 处理后续消息
+	for {
+		msg, err := stream.Recv()
+		if err != nil {
+			// 流结束
+			return nil
+		}
+
+		// 处理消息
+		if shareMsg := msg.GetShareMessage(); shareMsg != nil {
+			// 这是协议消息（DKG或签名）
+			// 从joinReq中获取发送方节点ID（如果可用），否则使用空字符串
+			fromNodeID := ""
+			if joinReq != nil && joinReq.NodeId != "" {
+				fromNodeID = joinReq.NodeId
+			}
+			if err := s.handleProtocolMessage(ctx, sessionID, fromNodeID, shareMsg); err != nil {
+				// 发送错误消息
+				errorMsg := &pb.ErrorMessage{
+					ErrorCode:    "PROTOCOL_ERROR",
+					ErrorMessage: err.Error(),
+					Recoverable:  true,
+					OccurredAt:   time.Now().Format(time.RFC3339),
+				}
+				if sendErr := stream.Send(&pb.SessionMessage{
+					MessageType: &pb.SessionMessage_ErrorMessage{
+						ErrorMessage: errorMsg,
+					},
+				}); sendErr != nil {
+					return status.Errorf(codes.Internal, "failed to send error message: %v", sendErr)
+				}
+				continue
+			}
+		} else if heartbeatReq := msg.GetHeartbeatRequest(); heartbeatReq != nil {
+			// 处理心跳
+			heartbeatResp := &pb.HeartbeatResponse{
+				Alive:      true,
+				ReceivedAt: time.Now().Format(time.RFC3339),
+			}
+			_ = heartbeatResp // 用于后续扩展
+			if err := stream.Send(&pb.SessionMessage{
+				MessageType: &pb.SessionMessage_HeartbeatRequest{
+					HeartbeatRequest: heartbeatReq,
+				},
+			}); err != nil {
+				return status.Errorf(codes.Internal, "failed to send heartbeat response: %v", err)
+			}
+		}
+	}
+}
+
+// StartDKG 由协调者调用以启动参与者的 DKG
+func (s *GRPCServer) StartDKG(ctx context.Context, req *pb.StartDKGRequest) (*pb.StartDKGResponse, error) {
+	dkgReq := &protocol.KeyGenRequest{
+		KeyID:      req.KeyId,
+		Algorithm:  req.Algorithm,
+		Curve:      req.Curve,
+		Threshold:  int(req.Threshold),
+		TotalNodes: int(req.TotalNodes),
+		NodeIDs:    req.NodeIds,
+	}
+
+	resp, err := s.protocolEngine.GenerateKeyShare(ctx, dkgReq)
+	if err != nil {
+		return &pb.StartDKGResponse{Started: false, Message: err.Error()}, nil
+	}
+
+	if resp != nil && resp.PublicKey != nil && resp.PublicKey.Hex != "" {
+		_ = s.sessionManager.CompleteKeygenSession(ctx, req.KeyId, resp.PublicKey.Hex)
+	}
+
+	return &pb.StartDKGResponse{Started: true, Message: "DKG started"}, nil
+}
+
+// handleProtocolMessage 处理协议消息（DKG或签名）
+func (s *GRPCServer) handleProtocolMessage(ctx context.Context, sessionID string, fromNodeID string, shareMsg *pb.ShareMessage) error {
+	// 从会话中判断消息类型
+	sess, err := s.sessionManager.GetSession(ctx, sessionID)
+	if err != nil {
+		return errors.Wrap(err, "failed to get session")
+	}
+
+	// 根据协议类型判断是DKG还是签名
+	// 根据会话的Protocol字段判断消息类型
+	// 如果Protocol包含"keygen"或"DKG"，则作为DKG消息处理
+	// 否则作为签名消息处理
+	if sess.Protocol == "keygen" || sess.Protocol == "dkg" {
+		// 处理特殊控制消息
+		if len(shareMsg.ShareData) > 0 {
+			data := string(shareMsg.ShareData)
+			if data == "DKG_START" {
+				// coordinator 发送的启动通知，只触发启动，不处理内容
+				// 后续真实 DKG 消息会再到达
+				return nil
+			}
+			if strings.HasPrefix(data, "DKG_COMPLETE:") {
+				pubKey := strings.TrimPrefix(data, "DKG_COMPLETE:")
+				if err := s.sessionManager.CompleteKeygenSession(ctx, sessionID, pubKey); err != nil {
+					return errors.Wrap(err, "failed to complete keygen session")
+				}
+				return nil
+			}
+		}
+
+		// ✅ 方案一：Coordinator 不参与 DKG，第一个 participant 作为 leader 启动
+		// 检查当前节点是否是第一个 participant（按 nodeID 排序）
+		isLeader := false
+		if len(sess.ParticipatingNodes) > 0 {
+			// 按 nodeID 排序，第一个节点作为 leader
+			leaderNodeID := sess.ParticipatingNodes[0]
+			isLeader = (s.nodeID == leaderNodeID)
+		}
+		_ = isLeader
+
+		// 对于DKG消息，如果是参与者节点且还没有启动DKG协议，需要自动启动
+		// 使用sync.Once确保每个sessionID只启动一次DKG协议
+		if len(sess.ParticipatingNodes) > 0 && sess.Threshold > 0 && sess.TotalNodes > 0 {
+			// 获取或创建sync.Once
+			onceInterface, _ := s.dkgStartOnce.LoadOrStore(sessionID, &sync.Once{})
+			once := onceInterface.(*sync.Once)
+
+			// 确保只启动一次
+			once.Do(func() {
+				// 在后台启动DKG协议，不阻塞消息处理
+				go func() {
+					// 从会话中获取DKG参数
+					// 注意：Algorithm和Curve需要从密钥元数据中获取，但会话中没有
+					// 暂时使用默认值，后续可以从keyID对应的密钥元数据中获取
+					dkgReq := &protocol.KeyGenRequest{
+						KeyID:      sess.KeyID,  // DKG会话使用keyID作为sessionID
+						Algorithm:  "ECDSA",     // 默认值，应该从密钥元数据中获取
+						Curve:      "secp256k1", // 默认值，应该从密钥元数据中获取
+						Threshold:  sess.Threshold,
+						TotalNodes: sess.TotalNodes,
+						NodeIDs:    sess.ParticipatingNodes,
+					}
+
+					// 启动DKG协议（在后台，不阻塞）
+					// 消息会被放入队列，等待DKG协议启动后处理
+					resp, err := s.protocolEngine.GenerateKeyShare(ctx, dkgReq)
+					if err == nil && resp != nil && resp.PublicKey != nil && resp.PublicKey.Hex != "" {
+						// DKG 完成，直接更新会话与密钥（共享数据库）
+						_ = s.sessionManager.CompleteKeygenSession(ctx, sess.KeyID, resp.PublicKey.Hex)
+					}
+				}()
+			})
+		}
+
+		// 作为DKG消息处理，传递发送方节点ID
+		// 消息会被放入队列，等待DKG协议启动后处理
+		if err := s.protocolEngine.ProcessIncomingKeygenMessage(ctx, sessionID, fromNodeID, shareMsg.ShareData); err != nil {
+			return errors.Wrap(err, "failed to process keygen message")
+		}
+	} else {
+		// 作为签名消息处理，传递发送方节点ID
+		if err := s.protocolEngine.ProcessIncomingSigningMessage(ctx, sessionID, fromNodeID, shareMsg.ShareData); err != nil {
+			return errors.Wrap(err, "failed to process signing message")
+		}
+	}
+
+	return nil
+}
+
+// SubmitSignatureShare 提交签名分片（单向RPC）
+// 这个方法同时用于DKG和签名消息
+func (s *GRPCServer) SubmitSignatureShare(ctx context.Context, req *pb.ShareRequest) (*pb.ShareResponse, error) {
+	log.Debug().
+		Str("session_id", req.SessionId).
+		Str("from_node", req.NodeId).
+		Int32("round", req.Round).
+		Int("data_len", len(req.ShareData)).
+		Msg("Received SubmitSignatureShare request")
+
+	// 处理协议消息，传递发送方节点ID
+	if err := s.handleProtocolMessage(ctx, req.SessionId, req.NodeId, &pb.ShareMessage{
+		ShareData:   req.ShareData,
+		Round:       req.Round,
+		SubmittedAt: req.Timestamp,
+	}); err != nil {
+		log.Error().Err(err).
+			Str("session_id", req.SessionId).
+			Str("from_node", req.NodeId).
+			Msg("Failed to handle protocol message")
+		return &pb.ShareResponse{
+			Accepted:  false,
+			Message:   err.Error(),
+			NextRound: req.Round,
+		}, nil
+	}
+
+	return &pb.ShareResponse{
+		Accepted:  true,
+		Message:   "share accepted",
+		NextRound: req.Round + 1,
+	}, nil
+}
+
+// Heartbeat 心跳检测
+func (s *GRPCServer) Heartbeat(ctx context.Context, req *pb.HeartbeatRequest) (*pb.HeartbeatResponse, error) {
+	return &pb.HeartbeatResponse{
+		Alive:         true,
+		CoordinatorId: s.nodeID,
+		ReceivedAt:    time.Now().Format(time.RFC3339),
+		Instructions:  make(map[string]string),
+	}, nil
+}
+
+// Start 启动 gRPC 服务器
+func (s *GRPCServer) Start(ctx context.Context) error {
+	addr := fmt.Sprintf(":%d", s.cfg.Port)
+
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("failed to listen on %s: %w", addr, err)
+	}
+
+	s.listener = listener
+
+	// 创建 gRPC 服务器实例
+	opts, _ := s.GetServerOptions()
+	s.grpcServer = grpc.NewServer(opts...)
+
+	// 注册服务
+	pb.RegisterMPCNodeServer(s.grpcServer, s)
+
+	// 启用反射（开发环境）
+	reflection.Register(s.grpcServer)
+
+	log.Info().
+		Str("address", addr).
+		Bool("tls", s.cfg.TLSEnabled).
+		Msg("Starting MPC gRPC server")
+
+	// 在 goroutine 中启动服务器
+	go func() {
+		if err := s.grpcServer.Serve(listener); err != nil {
+			log.Error().Err(err).Msg("MPC gRPC server failed")
+		}
+	}()
+
+	// 等待上下文取消
+	<-ctx.Done()
+	return s.Stop()
+}
+
+// Stop 停止 gRPC 服务器
+func (s *GRPCServer) Stop() error {
+	log.Info().Msg("Stopping MPC gRPC server")
+
+	if s.grpcServer != nil {
+		s.grpcServer.GracefulStop()
+	}
+
+	if s.listener != nil {
+		s.listener.Close()
+	}
+
+	return nil
+}

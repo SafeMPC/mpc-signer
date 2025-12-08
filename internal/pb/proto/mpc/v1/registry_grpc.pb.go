@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.0
 // - protoc             v3.19.4
-// source: mpc/v1/registry.proto
+// source: proto/mpc/v1/registry.proto
 
 package v1
 
@@ -327,5 +327,5 @@ var MPCRegistry_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "mpc/v1/registry.proto",
+	Metadata: "proto/mpc/v1/registry.proto",
 }

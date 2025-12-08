@@ -30,6 +30,7 @@ type KeyShare struct {
 
 // CreateKeyRequest 创建密钥请求
 type CreateKeyRequest struct {
+	KeyID       string // 可选的密钥ID，如果为空则自动生成
 	Algorithm   string
 	Curve       string
 	Threshold   int
