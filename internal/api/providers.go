@@ -296,18 +296,31 @@ func NewConsulDiscovery(cfg config.Server) (discovery.ServiceDiscovery, error) {
 
 // NewServiceRegistry 创建服务注册管理器
 func NewServiceRegistry(discoverySvc discovery.ServiceDiscovery, cfg config.Server) *discovery.ServiceRegistry {
+	// 确保 NodeID 不为空，如果为空则生成默认值
+	nodeID := cfg.MPC.NodeID
+	if nodeID == "" {
+		// 生成基于节点类型和时间戳的默认ID
+		nodeID = fmt.Sprintf("%s-%d", cfg.MPC.NodeType, time.Now().Unix())
+	}
+
+	// 从配置获取服务地址
+	serviceHost := discovery.GetServiceHost(cfg)
+
+	// 构建服务ID
+	serviceID := fmt.Sprintf("mpc-%s-%s", cfg.MPC.NodeType, nodeID)
+
 	serviceInfo := &discovery.ServiceInfo{
-		ID:      fmt.Sprintf("mpc-%s-%s", cfg.MPC.NodeType, cfg.MPC.NodeID),
+		ID:      serviceID,
 		Name:    fmt.Sprintf("mpc-%s", cfg.MPC.NodeType),
-		Address: "localhost", // TODO: 从配置获取
+		Address: serviceHost,
 		Port:    cfg.MPC.GRPCPort,
 		Tags: []string{
 			fmt.Sprintf("node-type:%s", cfg.MPC.NodeType),
-			fmt.Sprintf("node-id:%s", cfg.MPC.NodeID),
+			fmt.Sprintf("node-id:%s", nodeID),
 			"protocol:v1",
 		},
 		Meta: map[string]string{
-			"node_id":   cfg.MPC.NodeID,
+			"node_id":   nodeID,
 			"node_type": cfg.MPC.NodeType,
 			"version":   "v1.0.0",
 			"weight":    "1",

@@ -115,6 +115,17 @@ func newServerWithComponents(
 	nodeRegistry *node.Registry,
 	nodeDiscovery *node.Discovery,
 	sessionManager *session.Manager,
+	grpcServer *grpc.Server,
+	grpcClient *grpc.Client,
+	nodeGRPCService *grpc.NodeService,
+	coordGRPCService *grpc.CoordinatorService,
+	regGRPCService *grpc.RegistryService,
+	heartbeatService *grpc.HeartbeatService,
+	heartbeatManager *grpc.HeartbeatManager,
+	serviceDiscovery discovery.ServiceDiscovery,
+	serviceRegistry *discovery.ServiceRegistry,
+	mpcDiscovery *discovery.MPCDiscovery,
+	loadBalancer discovery.LoadBalancer,
 ) *Server {
 	return &Server{
 		Config:  cfg,
@@ -135,6 +146,18 @@ func newServerWithComponents(
 		NodeRegistry:       nodeRegistry,
 		NodeDiscovery:      nodeDiscovery,
 		SessionManager:     sessionManager,
+
+		GRPCServer:       grpcServer,
+		GRPCClient:       grpcClient,
+		NodeGRPCService:  nodeGRPCService,
+		CoordGRPCService: coordGRPCService,
+		RegGRPCService:   regGRPCService,
+		HeartbeatService: heartbeatService,
+		HeartbeatManager: heartbeatManager,
+		ServiceDiscovery: serviceDiscovery,
+		ServiceRegistry:  serviceRegistry,
+		MPCDiscovery:     mpcDiscovery,
+		LoadBalancer:     loadBalancer,
 	}
 }
 
@@ -173,6 +196,41 @@ func (s *Server) Start() error {
 		return errors.New("server is not ready")
 	}
 
+	ctx := context.Background()
+
+	// 1. 注册节点到服务发现（Consul）
+	if s.ServiceRegistry != nil {
+		if err := s.ServiceRegistry.Register(ctx); err != nil {
+			// 注册失败不应阻止服务启动，记录警告日志
+			log.Warn().
+				Err(err).
+				Str("node_id", s.Config.MPC.NodeID).
+				Str("node_type", s.Config.MPC.NodeType).
+				Msg("Failed to register node to service discovery, continuing startup")
+		} else {
+			log.Info().
+				Str("node_id", s.Config.MPC.NodeID).
+				Str("node_type", s.Config.MPC.NodeType).
+				Msg("Node registered to service discovery")
+		}
+	}
+
+	// 2. 启动 gRPC 服务器（如果已初始化）
+	// 注意：gRPC 服务器有自己的 Start 方法，它会在 goroutine 中运行并等待 context
+	// 使用 context.Background() 让 gRPC 服务器一直运行直到显式停止
+	if s.GRPCServer != nil {
+		go func() {
+			grpcCtx := context.Background() // gRPC 服务器会一直运行，直到在 Shutdown 中显式停止
+			if err := s.GRPCServer.Start(grpcCtx); err != nil {
+				log.Error().Err(err).Msg("gRPC server failed")
+			}
+		}()
+		log.Info().
+			Int("port", s.Config.MPC.GRPCPort).
+			Msg("MPC gRPC server started in background")
+	}
+
+	// 3. 启动 HTTP 服务器
 	if err := s.Echo.Start(s.Config.Echo.ListenAddress); err != nil {
 		return fmt.Errorf("failed to start echo server: %w", err)
 	}
@@ -185,20 +243,43 @@ func (s *Server) Shutdown(ctx context.Context) []error {
 
 	var errs []error
 
-	if s.DB != nil {
-		log.Debug().Msg("Closing database connection")
+	// 1. 注销节点从服务发现（Consul）
+	if s.ServiceRegistry != nil && s.ServiceRegistry.IsRegistered() {
+		log.Debug().Msg("Deregistering node from service discovery")
+		if err := s.ServiceRegistry.Deregister(ctx); err != nil {
+			log.Error().Err(err).Msg("Failed to deregister node from service discovery")
+			errs = append(errs, err)
+		} else {
+			log.Info().
+				Str("node_id", s.Config.MPC.NodeID).
+				Str("node_type", s.Config.MPC.NodeType).
+				Msg("Node deregistered from service discovery")
+		}
+	}
 
-		if err := s.DB.Close(); err != nil && !errors.Is(err, sql.ErrConnDone) {
-			log.Error().Err(err).Msg("Failed to close database connection")
+	// 2. 停止 gRPC 服务器（如果已初始化）
+	if s.GRPCServer != nil {
+		log.Debug().Msg("Stopping gRPC server")
+		if err := s.GRPCServer.Stop(); err != nil {
+			log.Error().Err(err).Msg("Failed to stop gRPC server")
 			errs = append(errs, err)
 		}
 	}
 
+	// 3. 关闭 HTTP 服务器
 	if s.Echo != nil {
 		log.Debug().Msg("Shutting down echo server")
-
 		if err := s.Echo.Shutdown(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error().Err(err).Msg("Failed to shutdown echo server")
+			errs = append(errs, err)
+		}
+	}
+
+	// 4. 关闭数据库连接
+	if s.DB != nil {
+		log.Debug().Msg("Closing database connection")
+		if err := s.DB.Close(); err != nil && !errors.Is(err, sql.ErrConnDone) {
+			log.Error().Err(err).Msg("Failed to close database connection")
 			errs = append(errs, err)
 		}
 	}

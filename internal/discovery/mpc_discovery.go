@@ -27,12 +27,18 @@ func NewMPCDiscovery(registry *ServiceRegistry, nodeManager *node.Manager, nodeD
 
 // RegisterMPCNode 注册MPC节点到服务发现
 func (m *MPCDiscovery) RegisterMPCNode(ctx context.Context, nodeInfo *node.Node) error {
+	// 解析 endpoint 获取地址和端口（默认gRPC端口为9090）
+	host, port, err := ParseEndpoint(nodeInfo.Endpoint, 9090)
+	if err != nil {
+		return fmt.Errorf("failed to parse endpoint %s: %w", nodeInfo.Endpoint, err)
+	}
+
 	// 转换节点信息为服务信息
 	serviceInfo := &ServiceInfo{
 		ID:      fmt.Sprintf("mpc-%s-%s", nodeInfo.NodeType, nodeInfo.NodeID),
 		Name:    fmt.Sprintf("mpc-%s", nodeInfo.NodeType),
-		Address: nodeInfo.Endpoint, // 需要解析地址和端口
-		Port:    50051,             // 默认gRPC端口，TODO: 从配置获取
+		Address: host,
+		Port:    port,
 		Tags: []string{
 			fmt.Sprintf("node-type:%s", nodeInfo.NodeType),
 			fmt.Sprintf("node-id:%s", nodeInfo.NodeID),
@@ -57,8 +63,8 @@ func (m *MPCDiscovery) RegisterMPCNode(ctx context.Context, nodeInfo *node.Node)
 		},
 	}
 
-	// 注册服务
-	if err := m.registry.Register(ctx); err != nil {
+	// 直接使用 discovery 接口注册服务（不通过 registry，因为这是注册其他节点）
+	if err := m.registry.discovery.Register(ctx, serviceInfo); err != nil {
 		return fmt.Errorf("failed to register MPC node %s: %w", nodeInfo.NodeID, err)
 	}
 
@@ -66,6 +72,8 @@ func (m *MPCDiscovery) RegisterMPCNode(ctx context.Context, nodeInfo *node.Node)
 		Str("node_id", nodeInfo.NodeID).
 		Str("node_type", string(nodeInfo.NodeType)).
 		Str("service_id", serviceInfo.ID).
+		Str("address", host).
+		Int("port", port).
 		Msg("MPC node registered to service discovery")
 
 	return nil
@@ -200,17 +208,15 @@ func (m *MPCDiscovery) GetServiceStats(ctx context.Context) (*ServiceStats, erro
 	stats := &ServiceStats{
 		Coordinators: ServiceGroupStats{
 			Total:     len(coordinators),
-			Healthy:   countHealthy(coordinators),
-			Unhealthy: len(coordinators) - countHealthy(coordinators),
+			Healthy:   countHealthy(ctx, m.registry, coordinators),
+			Unhealthy: len(coordinators) - countHealthy(ctx, m.registry, coordinators),
 		},
 		Participants: ServiceGroupStats{
 			Total:     len(participants),
-			Healthy:   countHealthy(participants),
-			Unhealthy: len(participants) - countHealthy(participants),
+			Healthy:   countHealthy(ctx, m.registry, participants),
+			Unhealthy: len(participants) - countHealthy(ctx, m.registry, participants),
 		},
 	}
-
-	return stats, nil
 
 	return stats, nil
 }
@@ -229,12 +235,24 @@ type ServiceGroupStats struct {
 }
 
 // countHealthy 统计健康的服务数量
-func countHealthy(services []*ServiceInfo) int {
+func countHealthy(ctx context.Context, registry *ServiceRegistry, services []*ServiceInfo) int {
 	healthy := 0
-	for range services {
-		// TODO: 检查服务的实际健康状态
-		// 这里暂时假设所有服务都是健康的
-		healthy++
+	for _, service := range services {
+		// 检查服务的实际健康状态
+		status, err := registry.discovery.HealthCheck(ctx, service.ID)
+		if err != nil {
+			// 如果无法检查健康状态，假设不健康
+			log.Debug().
+				Str("service_id", service.ID).
+				Err(err).
+				Msg("Failed to check service health")
+			continue
+		}
+
+		// 只有状态为 "passing" 才认为是健康的
+		if status.Status == "passing" {
+			healthy++
+		}
 	}
 	return healthy
 }

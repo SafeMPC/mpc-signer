@@ -72,7 +72,27 @@ func InitNewServer(server config.Server) (*Server, error) {
 	coordinatorService := NewCoordinatorServiceProvider(metadataStore, keyService, signingService, sessionManager, manager, discovery, engine)
 	participantService := NewParticipantServiceProvider(server, keyShareStorage, engine)
 	registry := NewNodeRegistry(manager)
-	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService, keyService, signingService, coordinatorService, participantService, manager, registry, discovery, sessionManager)
+	grpcServer, err := NewGRPCServer(server)
+	if err != nil {
+		return nil, err
+	}
+	client2, err := NewGRPCClient(server)
+	if err != nil {
+		return nil, err
+	}
+	nodeService := NewNodeService(server)
+	grpcCoordinatorService := NewCoordinatorService(server)
+	registryService := NewRegistryService()
+	heartbeatService := NewHeartbeatService(server, client2)
+	heartbeatManager := NewHeartbeatManager()
+	serviceDiscovery, err := NewConsulDiscovery(server)
+	if err != nil {
+		return nil, err
+	}
+	serviceRegistry := NewServiceRegistry(serviceDiscovery, server)
+	mpcDiscovery := NewMPCDiscovery(serviceRegistry, manager, discovery)
+	loadBalancer := NewLoadBalancer()
+	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService, keyService, signingService, coordinatorService, participantService, manager, registry, discovery, sessionManager, grpcServer, client2, nodeService, grpcCoordinatorService, registryService, heartbeatService, heartbeatManager, serviceDiscovery, serviceRegistry, mpcDiscovery, loadBalancer)
 	return apiServer, nil
 }
 
@@ -122,7 +142,27 @@ func InitNewServerWithDB(server config.Server, db *sql.DB, t ...*testing.T) (*Se
 	coordinatorService := NewCoordinatorServiceProvider(metadataStore, keyService, signingService, sessionManager, manager, discovery, engine)
 	participantService := NewParticipantServiceProvider(server, keyShareStorage, engine)
 	registry := NewNodeRegistry(manager)
-	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService, keyService, signingService, coordinatorService, participantService, manager, registry, discovery, sessionManager)
+	grpcServer, err := NewGRPCServer(server)
+	if err != nil {
+		return nil, err
+	}
+	client2, err := NewGRPCClient(server)
+	if err != nil {
+		return nil, err
+	}
+	nodeService := NewNodeService(server)
+	grpcCoordinatorService := NewCoordinatorService(server)
+	registryService := NewRegistryService()
+	heartbeatService := NewHeartbeatService(server, client2)
+	heartbeatManager := NewHeartbeatManager()
+	serviceDiscovery, err := NewConsulDiscovery(server)
+	if err != nil {
+		return nil, err
+	}
+	serviceRegistry := NewServiceRegistry(serviceDiscovery, server)
+	mpcDiscovery := NewMPCDiscovery(serviceRegistry, manager, discovery)
+	loadBalancer := NewLoadBalancer()
+	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService, keyService, signingService, coordinatorService, participantService, manager, registry, discovery, sessionManager, grpcServer, client2, nodeService, grpcCoordinatorService, registryService, heartbeatService, heartbeatManager, serviceDiscovery, serviceRegistry, mpcDiscovery, loadBalancer)
 	return apiServer, nil
 }
 
