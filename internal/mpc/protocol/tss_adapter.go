@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/kashguard/tss-lib/common"
@@ -144,6 +145,10 @@ func (m *tssPartyManager) executeKeygen(
 	threshold int,
 	thisNodeID string,
 ) (*keygen.LocalPartySaveData, error) {
+	var outMessageCount int64
+	var processedMessageCount int64
+	var lastMessageTime atomic.Int64
+	lastMessageTime.Store(time.Now().UnixNano())
 	// 注意：sync.Once应该已经防止了重复启动，所以这里不需要检查activeKeygen
 	// 但如果sync.Once失效，这里会创建一个新实例，导致消息混乱
 	// 为了安全，我们仍然检查一下，但只记录警告
@@ -218,12 +223,19 @@ func (m *tssPartyManager) executeKeygen(
 	} else {
 		log.Info().
 			Str("key_id", keyID).
+			Str("msg_ch_ptr", fmt.Sprintf("%p", msgCh)).
+			Int("msg_ch_len", len(msgCh)).
 			Msg("Reusing existing incomingKeygenMessages channel for DKG")
 	}
 	m.mu.Unlock()
 
 	// 启动协议
 	go func() {
+		log.Info().
+			Str("key_id", keyID).
+			Str("this_node_id", thisNodeID).
+			Str("msg_ch_ptr", fmt.Sprintf("%p", msgCh)).
+			Msg("Starting LocalParty.Start for DKG")
 		if err := party.Start(); err != nil {
 			errCh <- err
 		}
@@ -239,6 +251,8 @@ func (m *tssPartyManager) executeKeygen(
 		log.Info().
 			Str("key_id", keyID).
 			Str("this_node_id", thisNodeID).
+			Str("msg_ch_ptr", fmt.Sprintf("%p", msgCh)).
+			Int("msg_ch_len", len(msgCh)).
 			Msg("Starting message processing loop for DKG")
 		for {
 			select {
@@ -256,11 +270,13 @@ func (m *tssPartyManager) executeKeygen(
 						Msg("Message processing loop stopped: channel closed")
 					return
 				}
-				log.Debug().
+				log.Info().
 					Str("key_id", keyID).
 					Str("from_node_id", incomingMsg.fromNodeID).
 					Bool("is_broadcast", incomingMsg.isBroadcast).
 					Int("msg_bytes_len", len(incomingMsg.msgBytes)).
+					Str("msg_ch_ptr", fmt.Sprintf("%p", msgCh)).
+					Int("msg_ch_len", len(msgCh)).
 					Msg("Received message in processing loop")
 
 				// 获取LocalParty实例
@@ -269,9 +285,10 @@ func (m *tssPartyManager) executeKeygen(
 				m.mu.RUnlock()
 
 				if !exists {
-					log.Debug().
+					log.Warn().
 						Str("key_id", keyID).
 						Str("from_node_id", incomingMsg.fromNodeID).
+						Str("msg_ch_ptr", fmt.Sprintf("%p", msgCh)).
 						Msg("LocalParty not yet created, message will be processed when party starts")
 					// 如果LocalParty还未创建，等待一段时间后重试
 					// 注意：消息已经在队列中，不会丢失
@@ -298,13 +315,19 @@ func (m *tssPartyManager) executeKeygen(
 						Str("key_id", keyID).
 						Str("from_node_id", incomingMsg.fromNodeID).
 						Bool("is_broadcast", incomingMsg.isBroadcast).
+						Int64("out_message_count", atomic.LoadInt64(&outMessageCount)).
+						Int64("processed_message_count", atomic.LoadInt64(&processedMessageCount)).
 						Msg("Failed to update local party from bytes")
 					continue
 				} else {
-					log.Debug().
+					atomic.AddInt64(&processedMessageCount, 1)
+					lastMessageTime.Store(time.Now().UnixNano())
+					log.Info().
 						Str("key_id", keyID).
 						Str("from_node_id", incomingMsg.fromNodeID).
 						Bool("is_broadcast", incomingMsg.isBroadcast).
+						Int64("out_message_count", atomic.LoadInt64(&outMessageCount)).
+						Int64("processed_message_count", atomic.LoadInt64(&processedMessageCount)).
 						Msg("Successfully updated local party from bytes")
 				}
 			}
@@ -323,10 +346,26 @@ func (m *tssPartyManager) executeKeygen(
 	for {
 		select {
 		case <-ctx.Done():
+			log.Warn().
+				Str("key_id", keyID).
+				Str("this_node_id", thisNodeID).
+				Int64("out_message_count", atomic.LoadInt64(&outMessageCount)).
+				Int64("processed_message_count", atomic.LoadInt64(&processedMessageCount)).
+				Dur("since_last_message", time.Since(time.Unix(0, lastMessageTime.Load()))).
+				Msg("DKG stopped due to context cancellation")
 			return nil, ctx.Err()
 		case <-timeout.C:
+			log.Error().
+				Str("key_id", keyID).
+				Str("this_node_id", thisNodeID).
+				Int64("out_message_count", atomic.LoadInt64(&outMessageCount)).
+				Int64("processed_message_count", atomic.LoadInt64(&processedMessageCount)).
+				Dur("since_last_message", time.Since(time.Unix(0, lastMessageTime.Load()))).
+				Msg("DKG timeout reached")
 			return nil, errors.New("keygen timeout")
 		case msg := <-outCh:
+			atomic.AddInt64(&outMessageCount, 1)
+			lastMessageTime.Store(time.Now().UnixNano())
 			// 路由消息到其他节点
 			log.Info().
 				Str("key_id", keyID).
@@ -511,7 +550,23 @@ func (m *tssPartyManager) executeSigning(
 	}
 
 	ctxTSS := tss.NewPeerContext(parties)
-	params := tss.NewParameters(tss.S256(), ctxTSS, thisPartyID, len(parties), len(parties)-1)
+	threshold := len(parties) - 1
+	params := tss.NewParameters(tss.S256(), ctxTSS, thisPartyID, len(parties), threshold)
+
+	log.Info().
+		Str("session_id", sessionID).
+		Str("this_node_id", thisNodeID).
+		Str("this_party_id", thisPartyID.Id).
+		Int("party_count", len(parties)).
+		Int("threshold", threshold).
+		Strs("party_ids", func() []string {
+			ids := make([]string, len(parties))
+			for i, p := range parties {
+				ids[i] = p.Id
+			}
+			return ids
+		}()).
+		Msg("🔍 [DIAGNOSTIC] Created TSS parameters for signing")
 
 	// 计算消息哈希
 	hash := sha256.Sum256(message)
@@ -535,12 +590,39 @@ func (m *tssPartyManager) executeSigning(
 	m.mu.Unlock()
 
 	// 创建消息队列（如果不存在）
+	// 关键修复：executeSigning 创建队列后，直接使用这个队列引用传递给消息处理循环
+	// 这样可以确保消息处理循环使用的是 executeSigning 创建的队列，而不是 ProcessIncomingSigningMessage 创建的新队列
+	// 重要：队列必须在启动 LocalParty 之前创建，这样 ProcessIncomingSigningMessage 才能及时找到队列
 	m.mu.Lock()
-	msgCh, exists := m.incomingSigningMessages[sessionID]
+	var messageQueueForProcessing chan *incomingMessage
+	existingMsgCh, exists := m.incomingSigningMessages[sessionID]
 	if !exists {
-		msgCh = make(chan *incomingMessage, 100)
-		m.incomingSigningMessages[sessionID] = msgCh
+		log.Info().
+			Str("session_id", sessionID).
+			Str("this_node_id", thisNodeID).
+			Msg("🔍 [DIAGNOSTIC] executeSigning: creating new message queue (queue did not exist)")
+		messageQueueForProcessing = make(chan *incomingMessage, 100)
+		m.incomingSigningMessages[sessionID] = messageQueueForProcessing
+		log.Info().
+			Str("session_id", sessionID).
+			Str("this_node_id", thisNodeID).
+			Msg("🔍 [DIAGNOSTIC] executeSigning: message queue created and added to map")
+	} else {
+		log.Info().
+			Str("session_id", sessionID).
+			Str("this_node_id", thisNodeID).
+			Msg("🔍 [DIAGNOSTIC] executeSigning: using existing message queue")
+		messageQueueForProcessing = existingMsgCh
 	}
+	// 记录当前 map/activeSigning 状态，便于诊断队列可见性
+	_, activeSigningExists := m.activeSigning[sessionID]
+	log.Info().
+		Str("session_id", sessionID).
+		Str("this_node_id", thisNodeID).
+		Bool("queue_in_map", true).
+		Bool("active_signing_exists", activeSigningExists).
+		Msg("🔍 [DIAGNOSTIC] executeSigning: queue state after creation")
+	// 保存队列引用，供消息处理循环使用（避免从 map 重新获取，可能获取到不同的队列）
 	m.mu.Unlock()
 
 	// 启动协议
@@ -552,15 +634,103 @@ func (m *tssPartyManager) executeSigning(
 
 	// 启动消息处理循环：从队列读取消息并注入到party
 	// 使用tss-lib的UpdateFromBytes方法将消息注入到LocalParty
+	// 关键修复：消息处理循环能够动态检测队列变化，即使 ProcessIncomingSigningMessage 创建了后备队列也能处理
+	// 重要：消息处理循环必须在队列创建之后立即启动，这样 ProcessIncomingSigningMessage 放入的消息才能被及时处理
 	go func() {
+		log.Info().
+			Str("session_id", sessionID).
+			Str("this_node_id", thisNodeID).
+			Msg("🔍 [DIAGNOSTIC] Starting message processing loop for signing")
+
+		messageCount := 0
+		// 首先使用 executeSigning 创建的队列引用
+		msgCh := messageQueueForProcessing
+
+		if msgCh == nil {
+			log.Error().
+				Str("session_id", sessionID).
+				Str("this_node_id", thisNodeID).
+				Msg("🔍 [DIAGNOSTIC] Message queue reference is nil, exiting")
+			return
+		}
+
+		log.Info().
+			Str("session_id", sessionID).
+			Str("this_node_id", thisNodeID).
+			Msg("🔍 [DIAGNOSTIC] Message queue reference is valid, entering message processing loop")
+
+		// 消息处理循环：从队列读取消息并注入到 party
+		// 注意：ProcessIncomingSigningMessage 不再创建后备队列，所以消息处理循环只需要专注于读取消息
+		log.Info().
+			Str("session_id", sessionID).
+			Str("this_node_id", thisNodeID).
+			Msg("🔍 [DIAGNOSTIC] Entering message processing select loop")
+
 		for {
+			// 如果队列为 nil，从 map 获取
+			if msgCh == nil {
+				m.mu.RLock()
+				msgCh, _ = m.incomingSigningMessages[sessionID]
+				m.mu.RUnlock()
+				if msgCh == nil {
+					log.Warn().
+						Str("session_id", sessionID).
+						Str("this_node_id", thisNodeID).
+						Msg("🔍 [DIAGNOSTIC] Message queue not found in map, waiting...")
+					time.Sleep(100 * time.Millisecond)
+					continue
+				}
+				log.Info().
+					Str("session_id", sessionID).
+					Str("this_node_id", thisNodeID).
+					Msg("🔍 [DIAGNOSTIC] Retrieved message queue from map")
+			}
+
 			select {
 			case <-ctx.Done():
+				log.Info().
+					Str("session_id", sessionID).
+					Str("this_node_id", thisNodeID).
+					Int("total_messages_processed", messageCount).
+					Msg("🔍 [DIAGNOSTIC] Message processing loop stopped due to context cancellation")
 				return
 			case incomingMsg, ok := <-msgCh:
 				if !ok {
-					return
+					// 队列被关闭，尝试从 map 重新获取队列（可能是 ProcessIncomingSigningMessage 创建了后备队列）
+					log.Warn().
+						Str("session_id", sessionID).
+						Str("this_node_id", thisNodeID).
+						Int("total_messages_processed", messageCount).
+						Msg("🔍 [DIAGNOSTIC] Message queue closed, attempting to retrieve new queue from map")
+					m.mu.RLock()
+					msgCh, _ = m.incomingSigningMessages[sessionID]
+					m.mu.RUnlock()
+					if msgCh == nil {
+						// 队列已被清理，协议已结束，正常退出循环
+						log.Info().
+							Str("session_id", sessionID).
+							Str("this_node_id", thisNodeID).
+							Int("total_messages_processed", messageCount).
+							Msg("🔍 [DIAGNOSTIC] Message queue cleaned from map after channel closed, exiting processing loop")
+						return
+					}
+					log.Info().
+						Str("session_id", sessionID).
+						Str("this_node_id", thisNodeID).
+						Msg("🔍 [DIAGNOSTIC] Retrieved new message queue from map, continuing processing")
+					continue
 				}
+
+				messageCount++
+				log.Info().
+					Str("session_id", sessionID).
+					Str("this_node_id", thisNodeID).
+					Str("from_node_id", incomingMsg.fromNodeID).
+					Bool("is_broadcast", incomingMsg.isBroadcast).
+					Int("msg_bytes_len", len(incomingMsg.msgBytes)).
+					Int("message_count", messageCount).
+					Msg("🔍 [DIAGNOSTIC] Received message in signing processing loop")
+
 				// 获取LocalParty实例
 				m.mu.RLock()
 				localParty, exists := m.activeSigning[sessionID]
@@ -568,6 +738,11 @@ func (m *tssPartyManager) executeSigning(
 
 				if !exists {
 					// LocalParty还未创建或已结束，忽略消息
+					log.Warn().
+						Str("session_id", sessionID).
+						Str("this_node_id", thisNodeID).
+						Str("from_node_id", incomingMsg.fromNodeID).
+						Msg("🔍 [DIAGNOSTIC] LocalParty not found, message will be ignored")
 					continue
 				}
 
@@ -575,16 +750,44 @@ func (m *tssPartyManager) executeSigning(
 				fromPartyID, ok := m.nodeIDToPartyID[incomingMsg.fromNodeID]
 				if !ok {
 					// 发送方节点ID未找到，忽略消息
+					log.Warn().
+						Str("session_id", sessionID).
+						Str("this_node_id", thisNodeID).
+						Str("from_node_id", incomingMsg.fromNodeID).
+						Msg("🔍 [DIAGNOSTIC] PartyID not found for from_node_id, message will be ignored")
 					continue
 				}
 
 				// 使用UpdateFromBytes将消息注入到LocalParty
 				// isBroadcast参数：如果消息是广播消息则为true，否则为false
-				ok, tssErr := localParty.UpdateFromBytes(incomingMsg.msgBytes, fromPartyID, false)
+				log.Debug().
+					Str("session_id", sessionID).
+					Str("this_node_id", thisNodeID).
+					Str("from_node_id", incomingMsg.fromNodeID).
+					Str("from_party_id", fromPartyID.Id).
+					Bool("is_broadcast", incomingMsg.isBroadcast).
+					Msg("🔍 [DIAGNOSTIC] Calling UpdateFromBytes to inject message into LocalParty")
+
+				ok, tssErr := localParty.UpdateFromBytes(incomingMsg.msgBytes, fromPartyID, incomingMsg.isBroadcast)
 				if !ok || tssErr != nil {
 					// 消息注入失败，记录错误但继续处理其他消息
+					log.Error().
+						Err(tssErr).
+						Str("session_id", sessionID).
+						Str("this_node_id", thisNodeID).
+						Str("from_node_id", incomingMsg.fromNodeID).
+						Bool("is_broadcast", incomingMsg.isBroadcast).
+						Bool("update_ok", ok).
+						Msg("🔍 [DIAGNOSTIC] Failed to update LocalParty from bytes")
 					continue
 				}
+
+				log.Info().
+					Str("session_id", sessionID).
+					Str("this_node_id", thisNodeID).
+					Str("from_node_id", incomingMsg.fromNodeID).
+					Bool("is_broadcast", incomingMsg.isBroadcast).
+					Msg("🔍 [DIAGNOSTIC] Successfully updated LocalParty from bytes")
 			}
 		}
 	}()
@@ -599,14 +802,78 @@ func (m *tssPartyManager) executeSigning(
 	timeout := time.NewTimer(opts.Timeout)
 	defer timeout.Stop()
 
+	// ✅ 添加消息计数和状态跟踪
+	outMessageCount := 0
+	lastMessageTime := time.Now()
+
+	log.Info().
+		Str("session_id", sessionID).
+		Str("this_node_id", thisNodeID).
+		Str("protocol", opts.ProtocolName).
+		Dur("timeout", opts.Timeout).
+		Msg("🔍 [DIAGNOSTIC] Entering main signing loop, waiting for messages/results")
+
 	for {
 		select {
 		case <-ctx.Done():
+			log.Warn().
+				Str("session_id", sessionID).
+				Str("this_node_id", thisNodeID).
+				Int("out_message_count", outMessageCount).
+				Dur("last_message_age", time.Since(lastMessageTime)).
+				Msg("🔍 [DIAGNOSTIC] Main signing loop canceled by context")
 			return nil, ctx.Err()
 		case <-timeout.C:
+			log.Error().
+				Str("session_id", sessionID).
+				Str("this_node_id", thisNodeID).
+				Str("protocol", opts.ProtocolName).
+				Int("out_message_count", outMessageCount).
+				Dur("last_message_age", time.Since(lastMessageTime)).
+				Msg("🔍 [DIAGNOSTIC] Signing timeout - no signature received")
 			return nil, errors.Errorf("%s signing timeout", opts.ProtocolName)
 		case msg := <-outCh:
 			// 路由消息到其他节点
+			// ✅ 详细日志：记录消息类型、目标节点、广播状态、消息长度
+			outMessageCount++
+			lastMessageTime = time.Now()
+
+			msgBytes, _, err := msg.WireBytes()
+			if err != nil {
+				log.Error().
+					Err(err).
+					Str("session_id", sessionID).
+					Str("this_node_id", thisNodeID).
+					Msg("🔍 [DIAGNOSTIC] Failed to serialize message for logging")
+				msgBytes = []byte{}
+			}
+			msgType := fmt.Sprintf("%T", msg)
+			targetNodes := msg.GetTo()
+			isBroadcast := len(targetNodes) == 0
+
+			log.Info().
+				Str("session_id", sessionID).
+				Str("this_node_id", thisNodeID).
+				Int("out_message_count", outMessageCount).
+				Dur("time_since_start", time.Since(lastMessageTime)).
+				Msg("🔍 [DIAGNOSTIC] Received message from outCh (protocol is progressing)")
+
+			log.Info().
+				Str("session_id", sessionID).
+				Str("this_node_id", thisNodeID).
+				Str("message_type", msgType).
+				Int("target_count", len(targetNodes)).
+				Bool("is_broadcast", isBroadcast).
+				Int("msg_bytes_len", len(msgBytes)).
+				Strs("target_party_ids", func() []string {
+					ids := make([]string, len(targetNodes))
+					for i, to := range targetNodes {
+						ids[i] = to.Id
+					}
+					return ids
+				}()).
+				Msg("🔍 [DIAGNOSTIC] Received message from tss-lib outCh in executeSigning")
+
 			if m.messageRouter != nil {
 				// 获取会话ID
 				m.mu.RLock()
@@ -616,18 +883,93 @@ func (m *tssPartyManager) executeSigning(
 				}
 				m.mu.RUnlock()
 
-				// 路由到所有目标节点
-				for _, to := range msg.GetTo() {
-					targetNodeID, ok := m.getNodeID(to.Id)
-					if !ok {
-						return nil, errors.Errorf("party ID to node ID mapping not found: %s", to.Id)
+				if isBroadcast {
+					// 广播到所有节点（SendSigningMessage 会自行跳过发送给自身）
+					m.mu.RLock()
+					allTargetNodeIDs := make([]string, 0, len(m.partyIDToNodeID))
+					for _, targetNodeID := range m.partyIDToNodeID {
+						if targetNodeID != thisNodeID {
+							allTargetNodeIDs = append(allTargetNodeIDs, targetNodeID)
+						}
 					}
-					if err := m.messageRouter(currentSessionID, targetNodeID, msg, false); err != nil {
-						return nil, errors.Wrapf(err, "route message to node %s", targetNodeID)
+					m.mu.RUnlock()
+
+					log.Info().
+						Str("session_id", sessionID).
+						Str("this_node_id", thisNodeID).
+						Strs("target_node_ids", allTargetNodeIDs).
+						Int("target_count", len(allTargetNodeIDs)).
+						Msg("🔍 [DIAGNOSTIC] Broadcasting signing message to all nodes")
+
+					for _, targetNodeID := range allTargetNodeIDs {
+						if err := m.messageRouter(currentSessionID, targetNodeID, msg, true); err != nil {
+							log.Error().
+								Err(err).
+								Str("session_id", sessionID).
+								Str("this_node_id", thisNodeID).
+								Str("target_node_id", targetNodeID).
+								Msg("🔍 [DIAGNOSTIC] Failed to broadcast signing message")
+							return nil, errors.Wrapf(err, "broadcast signing msg to node %s", targetNodeID)
+						}
+						log.Debug().
+							Str("session_id", sessionID).
+							Str("this_node_id", thisNodeID).
+							Str("target_node_id", targetNodeID).
+							Msg("🔍 [DIAGNOSTIC] Successfully broadcast signing message to node")
+					}
+				} else {
+					// 路由到指定目标节点
+					log.Info().
+						Str("session_id", sessionID).
+						Str("this_node_id", thisNodeID).
+						Int("target_count", len(targetNodes)).
+						Msg("🔍 [DIAGNOSTIC] Routing signing message to specific target nodes")
+
+					for _, to := range targetNodes {
+						targetNodeID, ok := m.getNodeID(to.Id)
+						if !ok {
+							return nil, errors.Errorf("party ID to node ID mapping not found: %s", to.Id)
+						}
+
+						log.Debug().
+							Str("session_id", sessionID).
+							Str("this_node_id", thisNodeID).
+							Str("target_party_id", to.Id).
+							Str("target_node_id", targetNodeID).
+							Msg("🔍 [DIAGNOSTIC] Routing signing message to target node")
+
+						if err := m.messageRouter(currentSessionID, targetNodeID, msg, false); err != nil {
+							log.Error().
+								Err(err).
+								Str("session_id", sessionID).
+								Str("this_node_id", thisNodeID).
+								Str("target_node_id", targetNodeID).
+								Msg("🔍 [DIAGNOSTIC] Failed to route signing message")
+							return nil, errors.Wrapf(err, "route message to node %s", targetNodeID)
+						}
+
+						log.Debug().
+							Str("session_id", sessionID).
+							Str("this_node_id", thisNodeID).
+							Str("target_node_id", targetNodeID).
+							Msg("🔍 [DIAGNOSTIC] Successfully routed signing message to target node")
 					}
 				}
+			} else {
+				log.Error().
+					Str("session_id", sessionID).
+					Str("this_node_id", thisNodeID).
+					Msg("🔍 [DIAGNOSTIC] messageRouter is nil, cannot route signing message")
 			}
 		case sigData := <-endCh:
+			log.Info().
+				Str("session_id", sessionID).
+				Str("this_node_id", thisNodeID).
+				Str("protocol", opts.ProtocolName).
+				Int("out_message_count", outMessageCount).
+				Dur("total_duration", time.Since(lastMessageTime)).
+				Msg("🔍 [DIAGNOSTIC] Received signature from endCh (signing completed successfully)")
+
 			m.mu.Lock()
 			delete(m.activeSigning, sessionID)
 			// 清理消息队列
@@ -637,10 +979,29 @@ func (m *tssPartyManager) executeSigning(
 			}
 			m.mu.Unlock()
 			if sigData == nil {
+				log.Error().
+					Str("session_id", sessionID).
+					Str("this_node_id", thisNodeID).
+					Msg("🔍 [DIAGNOSTIC] Signature data is nil")
 				return nil, errors.Errorf("%s signing returned nil signature data", opts.ProtocolName)
 			}
+			log.Info().
+				Str("session_id", sessionID).
+				Str("this_node_id", thisNodeID).
+				Int("r_bytes_len", len(sigData.R)).
+				Int("s_bytes_len", len(sigData.S)).
+				Msg("🔍 [DIAGNOSTIC] Returning signature data")
 			return sigData, nil
 		case err := <-errCh:
+			log.Error().
+				Err(err).
+				Str("session_id", sessionID).
+				Str("this_node_id", thisNodeID).
+				Str("protocol", opts.ProtocolName).
+				Int("out_message_count", outMessageCount).
+				Dur("last_message_age", time.Since(lastMessageTime)).
+				Msg("🔍 [DIAGNOSTIC] Received error from errCh (LocalParty.Start() or protocol error)")
+
 			m.mu.Lock()
 			delete(m.activeSigning, sessionID)
 			// 清理消息队列
@@ -651,6 +1012,11 @@ func (m *tssPartyManager) executeSigning(
 			m.mu.Unlock()
 			// 如果支持可识别的中止，可以识别恶意节点
 			if opts.EnableIdentifiableAbort && err.Culprits() != nil {
+				log.Error().
+					Str("session_id", sessionID).
+					Str("this_node_id", thisNodeID).
+					Interface("culprits", err.Culprits()).
+					Msg("🔍 [DIAGNOSTIC] Identifiable abort detected")
 				return nil, errors.Wrapf(err, "%s signing error (identifiable abort: %v)", opts.ProtocolName, err.Culprits())
 			}
 			return nil, errors.Wrapf(err, "%s signing error", opts.ProtocolName)
@@ -677,6 +1043,8 @@ func (m *tssPartyManager) ProcessIncomingKeygenMessage(
 		log.Info().
 			Str("session_id", sessionID).
 			Str("from_node_id", fromNodeID).
+			Str("msg_ch_ptr", fmt.Sprintf("%p", msgCh)).
+			Int("msg_ch_len", len(msgCh)).
 			Msg("Created incomingKeygenMessages channel (message arrived before DKG started)")
 	}
 	m.mu.Unlock()
@@ -702,6 +1070,8 @@ func (m *tssPartyManager) ProcessIncomingKeygenMessage(
 		Bool("has_active_keygen", hasActiveKeygen).
 		Bool("has_active_eddsa_keygen", hasActiveEdDSAKeygen).
 		Bool("queue_exists", exists).
+		Str("msg_ch_ptr", fmt.Sprintf("%p", msgCh)).
+		Int("msg_ch_len", len(msgCh)).
 		Msg("Processing incoming DKG message")
 
 	// 非阻塞发送
@@ -711,6 +1081,7 @@ func (m *tssPartyManager) ProcessIncomingKeygenMessage(
 		log.Debug().
 			Str("session_id", sessionID).
 			Str("from_node_id", fromNodeID).
+			Int("msg_ch_len", len(msgCh)).
 			Msg("Message enqueued successfully")
 		return nil
 	case <-ctx.Done():
@@ -731,30 +1102,134 @@ func (m *tssPartyManager) ProcessIncomingSigningMessage(
 	sessionID string,
 	fromNodeID string,
 	msgBytes []byte,
+	isBroadcast bool,
 ) error {
 	// 将消息放入队列，由executeSigning中的消息处理循环处理
-	m.mu.Lock()
-	msgCh, exists := m.incomingSigningMessages[sessionID]
-	if !exists {
-		msgCh = make(chan *incomingMessage, 100)
-		m.incomingSigningMessages[sessionID] = msgCh
+	// 关键修复：使用更高效的等待机制（10ms ticker 替代 100ms 轮询）
+	// 这样可以更快检测到队列创建，减少等待时间
+	var msgCh chan *incomingMessage
+	var exists bool
+
+	// 等待队列创建（最多等待 10 秒，但使用更短的检查间隔）
+	waitTimeout := time.NewTimer(10 * time.Second)
+	defer waitTimeout.Stop()
+	ticker := time.NewTicker(10 * time.Millisecond) // 从 100ms 改为 10ms，提高检测频率
+	defer ticker.Stop()
+
+	// 第一次快速检查（不等待）
+	m.mu.RLock()
+	msgCh, exists = m.incomingSigningMessages[sessionID]
+	m.mu.RUnlock()
+
+	if exists {
+		log.Debug().
+			Str("session_id", sessionID).
+			Str("from_node_id", fromNodeID).
+			Msg("🔍 [DIAGNOSTIC] ProcessIncomingSigningMessage: found existing message queue immediately")
+	} else {
+		log.Debug().
+			Str("session_id", sessionID).
+			Str("from_node_id", fromNodeID).
+			Msg("🔍 [DIAGNOSTIC] ProcessIncomingSigningMessage: queue not found, waiting for creation...")
+
+		// 等待队列创建
+		waitCount := 0
+		for !exists {
+			select {
+			case <-waitTimeout.C:
+				// 超时后，如果队列仍然不存在，返回错误（不再创建后备队列）
+				// 这样可以避免创建多个队列导致消息丢失的问题
+				m.mu.RLock()
+				_, queueExists := m.incomingSigningMessages[sessionID]
+				_, activeSigningExists := m.activeSigning[sessionID]
+				m.mu.RUnlock()
+				log.Error().
+					Str("session_id", sessionID).
+					Str("from_node_id", fromNodeID).
+					Int("wait_iterations", waitCount).
+					Dur("wait_duration", time.Duration(waitCount)*10*time.Millisecond).
+					Bool("queue_exists", queueExists).
+					Bool("active_signing_exists", activeSigningExists).
+					Msg("🔍 [DIAGNOSTIC] ProcessIncomingSigningMessage: timeout waiting for queue, returning error")
+				// 最后一次检查，确保队列真的不存在
+				m.mu.RLock()
+				msgCh, exists = m.incomingSigningMessages[sessionID]
+				m.mu.RUnlock()
+				if !exists {
+					return errors.Errorf("timeout waiting for signing message queue (session %s, waited %d iterations)", sessionID, waitCount)
+				}
+				// 如果队列存在，继续处理（可能在最后一次检查时队列被创建了）
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ticker.C:
+				// 每 10ms 检查一次（而不是 100ms），更快检测到队列创建
+				waitCount++
+				m.mu.RLock()
+				msgCh, exists = m.incomingSigningMessages[sessionID]
+				m.mu.RUnlock()
+
+				if exists {
+					log.Debug().
+						Str("session_id", sessionID).
+						Str("from_node_id", fromNodeID).
+						Int("wait_iterations", waitCount).
+						Dur("wait_duration", time.Duration(waitCount)*10*time.Millisecond).
+						Msg("🔍 [DIAGNOSTIC] ProcessIncomingSigningMessage: found existing message queue")
+					// exists 为 true 时，for !exists 循环会自动退出，不需要 break
+				}
+
+				if waitCount%100 == 0 {
+					// 每 1 秒（100 * 10ms）记录一次日志，减少日志输出
+					log.Debug().
+						Str("session_id", sessionID).
+						Str("from_node_id", fromNodeID).
+						Int("wait_iterations", waitCount).
+						Dur("wait_duration", time.Duration(waitCount)*10*time.Millisecond).
+						Msg("🔍 [DIAGNOSTIC] ProcessIncomingSigningMessage: still waiting for message queue creation...")
+				}
+			}
+		}
 	}
-	m.mu.Unlock()
+
+	if msgCh == nil {
+		return errors.Errorf("failed to get or create message queue for session %s", sessionID)
+	}
 
 	// 创建消息对象
 	incomingMsg := &incomingMessage{
-		msgBytes:   msgBytes,
-		fromNodeID: fromNodeID,
+		msgBytes:    msgBytes,
+		fromNodeID:  fromNodeID,
+		isBroadcast: isBroadcast,
 	}
+
+	log.Info().
+		Str("session_id", sessionID).
+		Str("from_node_id", fromNodeID).
+		Bool("is_broadcast", isBroadcast).
+		Int("msg_bytes_len", len(msgBytes)).
+		Msg("🔍 [DIAGNOSTIC] ProcessIncomingSigningMessage: attempting to enqueue message")
 
 	// 非阻塞发送
 	select {
 	case msgCh <- incomingMsg:
 		// 消息已放入队列，由executeSigning中的消息处理循环处理
+		log.Info().
+			Str("session_id", sessionID).
+			Str("from_node_id", fromNodeID).
+			Bool("is_broadcast", isBroadcast).
+			Msg("🔍 [DIAGNOSTIC] ProcessIncomingSigningMessage: message enqueued successfully")
 		return nil
 	case <-ctx.Done():
+		log.Warn().
+			Str("session_id", sessionID).
+			Str("from_node_id", fromNodeID).
+			Msg("🔍 [DIAGNOSTIC] ProcessIncomingSigningMessage: context canceled while enqueueing")
 		return ctx.Err()
 	default:
+		log.Error().
+			Str("session_id", sessionID).
+			Str("from_node_id", fromNodeID).
+			Msg("🔍 [DIAGNOSTIC] ProcessIncomingSigningMessage: message queue full")
 		return errors.Errorf("signing message queue full for session %s", sessionID)
 	}
 }
