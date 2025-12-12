@@ -2,15 +2,20 @@ package protocol
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
 
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/kashguard/tss-lib/common"
 	eddsaKeygen "github.com/kashguard/tss-lib/eddsa/keygen"
+	eddsaSigning "github.com/kashguard/tss-lib/eddsa/signing"
 	"github.com/kashguard/tss-lib/tss"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 // FROSTProtocol FROST协议实现（基于 Schnorr 签名的阈值签名）
@@ -19,6 +24,9 @@ import (
 // 2. 基于 Schnorr 签名（更适合 Bitcoin BIP-340）
 // 3. 更高的性能和效率
 // 4. IETF 标准协议
+//
+// 注意：DKG 只支持 Ed25519 曲线（tss-lib 的 EdDSA keygen 限制）
+// 签名验证支持 Ed25519 和 secp256k1 两种曲线
 type FROSTProtocol struct {
 	curve string
 
@@ -48,6 +56,7 @@ type frostKeyRecord struct {
 	// 使用 EdDSA keygen 的数据结构（Schnorr 兼容）
 	KeyData    *eddsaKeygen.LocalPartySaveData
 	PublicKey  *PublicKey
+	Curve      string // 曲线类型（ed25519 或 secp256k1）
 	Threshold  int
 	TotalNodes int
 	NodeIDs    []string
@@ -57,11 +66,11 @@ type frostKeyRecord struct {
 func NewFROSTProtocol(curve string, thisNodeID string, messageRouter func(sessionID string, nodeID string, msg tss.Message, isBroadcast bool) error, keyShareStorage KeyShareStorage) *FROSTProtocol {
 	partyManager := newTSSPartyManager(messageRouter)
 	return &FROSTProtocol{
-		curve:          curve,
+		curve:           curve,
 		keyRecords:      make(map[string]*frostKeyRecord),
-		partyManager:   partyManager,
-		thisNodeID:     thisNodeID,
-		messageRouter:  messageRouter,
+		partyManager:    partyManager,
+		thisNodeID:      thisNodeID,
+		messageRouter:   messageRouter,
 		keyShareStorage: keyShareStorage,
 	}
 }
@@ -81,6 +90,7 @@ func (p *FROSTProtocol) saveKeyRecord(keyID string, record *frostKeyRecord) {
 }
 
 // GenerateKeyShare 分布式密钥生成（使用 EdDSA DKG，Schnorr 兼容）
+// 注意：DKG 只支持 Ed25519 曲线，不支持 secp256k1（tss-lib 的 EdDSA keygen 限制）
 func (p *FROSTProtocol) GenerateKeyShare(ctx context.Context, req *KeyGenRequest) (*KeyGenResponse, error) {
 	if err := p.ValidateKeyGenRequest(req); err != nil {
 		return nil, errors.Wrap(err, "invalid key generation request")
@@ -108,15 +118,64 @@ func (p *FROSTProtocol) GenerateKeyShare(ctx context.Context, req *KeyGenRequest
 		return nil, errors.Wrap(err, "convert FROST key data")
 	}
 
+	// 确定曲线类型（FROST DKG 只支持 Ed25519）
+	curve := req.Curve
+	if curve == "" {
+		curve = p.curve
+	}
+	// 标准化曲线名称（统一为小写）
+	curve = strings.ToLower(curve)
+	// FROST DKG 只支持 Ed25519，强制设置为 ed25519
+	if curve != "ed25519" {
+		log.Warn().
+			Str("requested_curve", req.Curve).
+			Str("default_curve", p.curve).
+			Msg("FROST DKG only supports Ed25519, forcing curve to ed25519")
+		curve = "ed25519"
+	}
+
 	// 保存密钥记录
 	record := &frostKeyRecord{
 		KeyData:    keyData,
 		PublicKey:  publicKey,
+		Curve:      curve,
 		Threshold:  req.Threshold,
 		TotalNodes: req.TotalNodes,
 		NodeIDs:    nodeIDs,
 	}
 	p.saveKeyRecord(keyID, record)
+
+	// 持久化 LocalPartySaveData 到 keyShareStorage（用于签名时加载）
+	// 注意：keyShareStorage 是必需的，如果为 nil，DKG 应该失败
+	if p.keyShareStorage == nil {
+		log.Error().
+			Str("key_id", keyID).
+			Str("node_id", p.thisNodeID).
+			Msg("keyShareStorage is nil, cannot store LocalPartySaveData - DKG will fail")
+		return nil, errors.New("keyShareStorage is nil, cannot store LocalPartySaveData")
+	}
+
+	keyDataBytes, err := serializeEdDSALocalPartySaveData(keyData)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to serialize LocalPartySaveData")
+	}
+	log.Info().
+		Str("key_id", keyID).
+		Str("node_id", p.thisNodeID).
+		Int("key_data_bytes", len(keyDataBytes)).
+		Msg("Storing LocalPartySaveData to keyShareStorage")
+	if err := p.keyShareStorage.StoreKeyData(ctx, keyID, p.thisNodeID, keyDataBytes); err != nil {
+		log.Error().
+			Err(err).
+			Str("key_id", keyID).
+			Str("node_id", p.thisNodeID).
+			Msg("Failed to store LocalPartySaveData")
+		return nil, errors.Wrap(err, "failed to store LocalPartySaveData")
+	}
+	log.Info().
+		Str("key_id", keyID).
+		Str("node_id", p.thisNodeID).
+		Msg("LocalPartySaveData stored successfully")
 
 	return &KeyGenResponse{
 		KeyShares: keyShares,
@@ -130,13 +189,64 @@ func (p *FROSTProtocol) ThresholdSign(ctx context.Context, sessionID string, req
 		return nil, errors.Wrap(err, "invalid sign request")
 	}
 
-	// 获取密钥记录
+	// 复用密钥加载逻辑（从内存或 keyShareStorage 加载）
 	record, ok := p.getKeyRecord(req.KeyID)
 	if !ok {
-		return nil, errors.Errorf("key %s not found", req.KeyID)
+		// 内存中没有，尝试从 keyShareStorage 加载
+		if p.keyShareStorage != nil {
+			keyDataBytes, err := p.keyShareStorage.GetKeyData(ctx, req.KeyID, p.thisNodeID)
+			if err != nil {
+				return nil, errors.Wrapf(err, "key %s not found in memory or storage", req.KeyID)
+			}
+
+			// 反序列化 EdDSA LocalPartySaveData
+			keyData, err := deserializeEdDSALocalPartySaveData(keyDataBytes)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to deserialize EdDSA LocalPartySaveData")
+			}
+
+			// 从 keyData 中提取公钥（使用与 convertFROSTKeyData 相同的方法）
+			if keyData.EDDSAPub == nil {
+				return nil, errors.New("EDDSAPub is nil in EdDSA LocalPartySaveData")
+			}
+
+			// 使用 tss-lib 提供的转换函数将公钥转换为标准 Ed25519 格式（big-endian）
+			standardPubKey := eddsaSigning.PublicKeyToStandardEd25519(
+				keyData.EDDSAPub.X(),
+				keyData.EDDSAPub.Y(),
+			)
+
+			pubKeyBytes := standardPubKey[:]
+			pubKeyHex := hex.EncodeToString(pubKeyBytes)
+
+			log.Info().
+				Int("public_key_len", len(pubKeyBytes)).
+				Str("public_key_hex", pubKeyHex).
+				Msg("✅ [DIAGNOSTIC] ThresholdSign: converted public key to standard Ed25519 format (big-endian)")
+
+			// 确定曲线类型（从协议实例获取）
+			curve := strings.ToLower(p.curve)
+			if curve != "ed25519" && curve != "secp256k1" {
+				// 默认使用 ed25519（EdDSA keygen 的默认曲线）
+				curve = "ed25519"
+			}
+
+			// 创建密钥记录并保存到内存
+			record = &frostKeyRecord{
+				KeyData:    keyData,
+				PublicKey:  &PublicKey{Bytes: pubKeyBytes, Hex: pubKeyHex},
+				Curve:      curve,
+				Threshold:  0,
+				TotalNodes: 0,
+				NodeIDs:    nil,
+			}
+			p.saveKeyRecord(req.KeyID, record)
+		} else {
+			return nil, errors.Errorf("key %s not found in memory and keyShareStorage is nil", req.KeyID)
+		}
 	}
 
-	if record.KeyData == nil {
+	if record == nil || record.KeyData == nil {
 		return nil, errors.New("key data not found in record")
 	}
 
@@ -194,27 +304,20 @@ func convertFROSTKeyData(
 		return nil, nil, errors.New("EDDSAPub is nil")
 	}
 
-	// EdDSA/Ed25519 公钥格式：直接使用 ECPoint 的坐标
-	// Ed25519 公钥是 32 字节，使用 Y 坐标（压缩格式）
-	xBytes := saveData.EDDSAPub.X().Bytes()
-	yBytes := saveData.EDDSAPub.Y().Bytes()
+	// 使用 tss-lib 提供的转换函数将公钥转换为标准 Ed25519 格式（RFC 8032，little-endian）
+	// PublicKeyToStandardEd25519 将 tss-lib 的内部公钥格式转换为标准 Ed25519 格式
+	standardPubKey := eddsaSigning.PublicKeyToStandardEd25519(
+		saveData.EDDSAPub.X(),
+		saveData.EDDSAPub.Y(),
+	)
 
-	// Ed25519 公钥使用 Y 坐标（32 字节），最高位表示 X 的符号
-	var pubKeyBytes []byte
-	if len(yBytes) >= 32 {
-		pubKeyBytes = append([]byte(nil), yBytes[:32]...)
-	} else {
-		// 如果 Y 坐标不足 32 字节，进行填充
-		pubKeyBytes = make([]byte, 32)
-		copy(pubKeyBytes[32-len(yBytes):], yBytes)
-	}
-
-	// 设置最高位表示 X 的符号（Ed25519 压缩格式）
-	if len(xBytes) > 0 && xBytes[len(xBytes)-1]&1 != 0 {
-		pubKeyBytes[31] |= 0x80
-	}
-
+	pubKeyBytes := standardPubKey[:]
 	pubKeyHex := hex.EncodeToString(pubKeyBytes)
+
+	log.Info().
+		Int("public_key_len", len(pubKeyBytes)).
+		Str("public_key_hex", pubKeyHex).
+		Msg("✅ [DIAGNOSTIC] convertFROSTKeyData: converted to standard Ed25519 format (RFC 8032, little-endian)")
 
 	publicKey := &PublicKey{
 		Bytes: pubKeyBytes,
@@ -235,34 +338,64 @@ func convertFROSTKeyData(
 	return keyShares, publicKey, nil
 }
 
-// convertFROSTSignature 将 EdDSA 签名数据转换为我们的 Signature 格式（Schnorr 格式）
+// convertFROSTSignature 将 EdDSA 签名数据转换为我们的 Signature 格式（标准 Ed25519 格式）
+// tss-lib v0.0.2 已确认签名输出即为标准 Ed25519 格式（RFC 8032，little-endian）
+// SignatureToStandardEd25519 主要做长度校验并返回副本
 func convertFROSTSignature(sigData *common.SignatureData) (*Signature, error) {
 	if sigData == nil {
 		return nil, errors.New("signature data is nil")
 	}
 
-	// EdDSA/Schnorr 签名格式：R 和 S 都是 []byte
-	rBytes := sigData.R
-	sBytes := sigData.S
+	// 添加调试日志
+	log.Info().
+		Int("signature_len", len(sigData.Signature)).
+		Int("r_len", len(sigData.R)).
+		Int("s_len", len(sigData.S)).
+		Str("signature_hex", hex.EncodeToString(sigData.Signature)).
+		Str("r_hex", hex.EncodeToString(sigData.R)).
+		Str("s_hex", hex.EncodeToString(sigData.S)).
+		Msg("🔍 [DIAGNOSTIC] convertFROSTSignature: signature data")
 
-	// 填充到 32 字节
-	rPadded := padScalarBytes(rBytes)
-	sPadded := padScalarBytes(sBytes)
+	// tss-lib 输出已经是标准 Ed25519 格式（little-endian），这里仅做校验并返回副本
+	standardSig, err := eddsaSigning.SignatureToStandardEd25519(sigData.Signature)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to convert signature to standard Ed25519 format")
+	}
 
-	// Schnorr 签名格式：R || S（64 字节）
-	schnorrSig := append(rPadded, sPadded...)
+	log.Info().
+		Int("standard_signature_len", len(standardSig)).
+		Str("standard_signature_hex", hex.EncodeToString(standardSig[:])).
+		Msg("✅ [DIAGNOSTIC] convertFROSTSignature: converted to standard Ed25519 format (big-endian)")
 
 	return &Signature{
-		R:     rPadded,
-		S:     sPadded,
-		Bytes: schnorrSig,
-		Hex:   hex.EncodeToString(schnorrSig),
+		R:     standardSig[:32],
+		S:     standardSig[32:64],
+		Bytes: standardSig[:],
+		Hex:   hex.EncodeToString(standardSig[:]),
 	}, nil
 }
 
+// 注意：reverseBytes 函数已移除，现在使用 tss-lib 提供的转换函数
+// SignatureToStandardEd25519 和 PublicKeyToStandardEd25519 来处理字节序转换
+
 // VerifySignature 签名验证（Schnorr 签名验证）
 func (p *FROSTProtocol) VerifySignature(ctx context.Context, sig *Signature, msg []byte, pubKey *PublicKey) (bool, error) {
-	return verifySchnorrSignature(sig, msg, pubKey)
+	// 根据公钥长度自动判断曲线类型
+	// Ed25519 公钥：32 字节
+	// secp256k1 公钥：33 字节（压缩）或 65 字节（未压缩）
+	var curve string
+	if len(pubKey.Bytes) == 32 {
+		curve = "ed25519"
+	} else if len(pubKey.Bytes) == 33 || len(pubKey.Bytes) == 65 {
+		curve = "secp256k1"
+	} else {
+		// 默认使用协议实例的曲线
+		curve = strings.ToLower(p.curve)
+		if curve != "ed25519" && curve != "secp256k1" {
+			curve = "ed25519"
+		}
+	}
+	return verifySchnorrSignature(sig, msg, pubKey, curve)
 }
 
 // SupportedProtocols 支持的协议
@@ -286,10 +419,14 @@ func (p *FROSTProtocol) ValidateKeyGenRequest(req *KeyGenRequest) error {
 		return errors.New("key generation request is nil")
 	}
 
-	// FROST 支持 Ed25519 曲线（大小写不敏感）
+	// FROST DKG 只支持 Ed25519 曲线（tss-lib 的 EdDSA keygen 限制）
+	// 注意：签名验证支持 Ed25519 和 secp256k1，但 DKG 只支持 Ed25519
 	curveLower := strings.ToLower(req.Curve)
-	if req.Curve != "" && curveLower != "ed25519" && curveLower != "secp256k1" {
-		return errors.Errorf("unsupported curve for FROST: %s (supported: ed25519, secp256k1)", req.Curve)
+	if req.Curve != "" && curveLower != "ed25519" {
+		if curveLower == "secp256k1" {
+			return errors.Errorf("FROST DKG does not support secp256k1 curve (only Ed25519 is supported for DKG). Use Ed25519 for DKG, or use GG18/GG20 protocol for secp256k1")
+		}
+		return errors.Errorf("unsupported curve for FROST DKG: %s (only Ed25519 is supported for DKG)", req.Curve)
 	}
 
 	if req.Algorithm != "" && req.Algorithm != "Schnorr" && req.Algorithm != "EdDSA" {
@@ -334,12 +471,13 @@ func (p *FROSTProtocol) ProcessIncomingSigningMessage(
 	sessionID string,
 	fromNodeID string,
 	msgBytes []byte,
+	isBroadcast bool,
 ) error {
-	return p.partyManager.ProcessIncomingSigningMessage(ctx, sessionID, fromNodeID, msgBytes)
+	return p.partyManager.ProcessIncomingSigningMessage(ctx, sessionID, fromNodeID, msgBytes, isBroadcast)
 }
 
-// verifySchnorrSignature 验证 Schnorr 签名
-func verifySchnorrSignature(sig *Signature, msg []byte, pubKey *PublicKey) (bool, error) {
+// verifySchnorrSignature 验证 Schnorr 签名（根据曲线类型选择验证方法）
+func verifySchnorrSignature(sig *Signature, msg []byte, pubKey *PublicKey, curve string) (bool, error) {
 	if sig == nil || len(sig.Bytes) == 0 {
 		return false, errors.New("signature bytes missing")
 	}
@@ -350,12 +488,93 @@ func verifySchnorrSignature(sig *Signature, msg []byte, pubKey *PublicKey) (bool
 		return false, errors.New("public key is empty")
 	}
 
-	// Schnorr 签名验证逻辑
-	// 注意：这里需要根据实际的 Schnorr 签名验证算法实现
-	// 可以使用 secp256k1 或 Ed25519 的验证函数
+	// 标准化曲线名称
+	curveLower := strings.ToLower(curve)
 
-	// 简化实现：使用 secp256k1 验证（如果曲线是 secp256k1）
-	// 实际应该根据曲线类型选择不同的验证方法
+	// 根据曲线类型选择不同的验证方法
+	switch curveLower {
+	case "ed25519":
+		return verifyEd25519Signature(sig, msg, pubKey)
+	case "secp256k1":
+		// secp256k1 使用 Schnorr 签名验证（BIP-340）
+		// 注意：这里暂时使用 ECDSA 验证，因为 tss-lib 的 EdDSA keygen 可能不支持 secp256k1
+		// 如果 tss-lib 支持 secp256k1 的 Schnorr，应该使用专门的 Schnorr 验证函数
+		return verifySecp256k1SchnorrSignature(sig, msg, pubKey)
+	default:
+		// 默认使用 Ed25519 验证
+		return verifyEd25519Signature(sig, msg, pubKey)
+	}
+}
+
+// verifyEd25519Signature 验证 Ed25519 签名（标准 Ed25519，RFC 8032）
+// 注意：tss-lib v0.1 已修改为支持标准 Ed25519，签名时使用原始消息
+// Ed25519.Verify 内部会使用 SHA-512 对消息进行哈希（标准 Ed25519 规范）
+func verifyEd25519Signature(sig *Signature, msg []byte, pubKey *PublicKey) (bool, error) {
+	// Ed25519 公钥应该是 32 字节
+	if len(pubKey.Bytes) != 32 {
+		return false, errors.Errorf("invalid Ed25519 public key length: expected 32 bytes, got %d", len(pubKey.Bytes))
+	}
+
+	// Ed25519 签名应该是 64 字节（R || S）
+	if len(sig.Bytes) != 64 {
+		return false, errors.Errorf("invalid Ed25519 signature length: expected 64 bytes, got %d", len(sig.Bytes))
+	}
+
+	// 标准 Ed25519 验证：使用原始消息
+	// Ed25519.Verify 内部会使用 SHA-512 对消息进行哈希（符合 RFC 8032 标准）
+	log.Debug().
+		Int("message_length", len(msg)).
+		Str("message_hex", hex.EncodeToString(msg)).
+		Int("signature_length", len(sig.Bytes)).
+		Str("signature_hex", hex.EncodeToString(sig.Bytes)).
+		Int("public_key_length", len(pubKey.Bytes)).
+		Str("public_key_hex", hex.EncodeToString(pubKey.Bytes)).
+		Msg("🔍 [DIAGNOSTIC] verifyEd25519Signature: verifying signature with standard Ed25519")
+
+	valid := ed25519.Verify(pubKey.Bytes, msg, sig.Bytes)
+
+	if !valid {
+		log.Warn().
+			Int("message_length", len(msg)).
+			Str("message_hex", hex.EncodeToString(msg)).
+			Int("signature_length", len(sig.Bytes)).
+			Str("signature_hex", hex.EncodeToString(sig.Bytes)).
+			Int("public_key_length", len(pubKey.Bytes)).
+			Str("public_key_hex", hex.EncodeToString(pubKey.Bytes)).
+			Msg("Ed25519 signature verification failed")
+	} else {
+		log.Info().
+			Int("message_length", len(msg)).
+			Msg("✅ Ed25519 signature verification succeeded")
+	}
+
+	return valid, nil
+}
+
+// verifySecp256k1SchnorrSignature 验证 secp256k1 Schnorr 签名（BIP-340）
+// 注意：这里使用简化的验证方法，实际应该实现完整的 BIP-340 Schnorr 验证
+func verifySecp256k1SchnorrSignature(sig *Signature, msg []byte, pubKey *PublicKey) (bool, error) {
+	// secp256k1 Schnorr 签名格式：R (32 bytes) || S (32 bytes) = 64 bytes
+	if len(sig.Bytes) != 64 {
+		return false, errors.Errorf("invalid secp256k1 Schnorr signature length: expected 64 bytes, got %d", len(sig.Bytes))
+	}
+
+	// 验证公钥格式
+	if _, err := secp256k1.ParsePubKey(pubKey.Bytes); err != nil {
+		return false, errors.Wrap(err, "failed to parse secp256k1 public key")
+	}
+
+	// 注意：这里使用简化的验证方法
+	// 完整的 BIP-340 Schnorr 验证需要实现：
+	// 1. 验证 R 是有效的曲线点
+	// 2. 计算挑战 c = H(R || P || m)
+	// 3. 验证 s*G = R + c*P
+	//
+	// 由于 tss-lib 的 EdDSA keygen 可能不支持 secp256k1，这里暂时使用 ECDSA 验证作为回退
+	// 如果 tss-lib 支持 secp256k1 的 Schnorr，应该使用专门的 Schnorr 验证库
+
+	// 临时实现：使用 ECDSA 验证作为回退方案
+	// TODO: 实现完整的 BIP-340 Schnorr 验证
 	return verifyECDSASignature(sig, msg, pubKey)
 }
 
@@ -374,4 +593,36 @@ func validateSignRequest(req *SignRequest) error {
 		return errors.New("node IDs are required")
 	}
 	return nil
+}
+
+// serializeEdDSALocalPartySaveData 序列化 EdDSA LocalPartySaveData 为字节
+// 使用 JSON 序列化，因为 tss-lib 的 LocalPartySaveData 内部使用 JSON 进行序列化
+// gob 序列化可能导致 ECPoint 等类型在反序列化时出现问题
+func serializeEdDSALocalPartySaveData(keyData *eddsaKeygen.LocalPartySaveData) ([]byte, error) {
+	if keyData == nil {
+		return nil, errors.New("keyData is nil")
+	}
+
+	// 使用 JSON 序列化，因为 tss-lib 的 LocalPartySaveData 内部使用 JSON
+	jsonBytes, err := json.Marshal(keyData)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal LocalPartySaveData to JSON")
+	}
+
+	return jsonBytes, nil
+}
+
+// deserializeEdDSALocalPartySaveData 从字节反序列化 EdDSA LocalPartySaveData
+// 使用 JSON 反序列化，与 tss-lib 的内部序列化方式一致
+func deserializeEdDSALocalPartySaveData(data []byte) (*eddsaKeygen.LocalPartySaveData, error) {
+	if len(data) == 0 {
+		return nil, errors.New("data is empty")
+	}
+
+	var keyData eddsaKeygen.LocalPartySaveData
+	if err := json.Unmarshal(data, &keyData); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal LocalPartySaveData from JSON")
+	}
+
+	return &keyData, nil
 }

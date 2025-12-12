@@ -303,8 +303,8 @@ github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCV
 github.com/json-iterator/go v1.1.8/go.mod h1:KdQUCv79m/52Kvf8AW2vK1V8akMuk1QjK/uOdHXbAo4=
 github.com/json-iterator/go v1.1.9/go.mod h1:KdQUCv79m/52Kvf8AW2vK1V8akMuk1QjK/uOdHXbAo4=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
-github.com/kashguard/tss-lib v0.0.0-20251128103547-715924bc6b96 h1:ZSj18UykttL609jV3oZm8VJVpu+3qPJmQXlf0clHVcg=
-github.com/kashguard/tss-lib v0.0.0-20251128103547-715924bc6b96/go.mod h1:han5UZl/sgp1lGGI87PwF8VdE4Txhivg+LUD+dT847c=
+github.com/kashguard/tss-lib v0.0.2 h1:u+Pr+rPeTBEdE//abpl0weZLW+rZlJGFdewIVtBkXBs=
+github.com/kashguard/tss-lib v0.0.2/go.mod h1:han5UZl/sgp1lGGI87PwF8VdE4Txhivg+LUD+dT847c=
 github.com/kat-co/vala v0.0.0-20170210184112-42e1d8b61f12 h1:DQVOxR9qdYEybJUr/c7ku34r3PfajaMYXZwgDM7KuSk=
 github.com/kat-co/vala v0.0.0-20170210184112-42e1d8b61f12/go.mod h1:u9MdXq/QageOOSGp7qG4XAQsYUMP+V5zEel/Vrl6OOc=
 github.com/kisielk/errcheck v1.2.0/go.mod h1:/BMXB+zMLi60iA8Vv6Ksmxu/1UDYcXs4uQLJ+jE2L00=
