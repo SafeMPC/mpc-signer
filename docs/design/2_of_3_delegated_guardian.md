@@ -130,7 +130,52 @@ flowchart TD
 *   **私钥不离身**：`User_Auth_Key` 始终在用户手机的安全区域（Secure Enclave / KeyStore）中，仅用于签署指令，不参与复杂的 MPC 交互。
 *   **所见即所签**：APP 端展示交易详情供用户确认，签名针对该特定交易，防止重放攻击。
 
-## 5. 方案优缺点总结
+## 5. 扩展方案：团队多签 (Team Multisig)
+
+在 Delegated Guardian 架构下实现团队多签（如 2-of-3 人员审批），**不需要**部署链上多签合约，也**不需要**改变底层的 MPC 门限（保持 2-of-3 分片）。核心逻辑是升级 Guardian 的验证策略。
+
+### 5.1 核心理念：链下策略聚合
+*   **原个人模式**：Guardian 见 **1** 个有效用户签名即放行 Share 2。
+*   **新团队模式**：Guardian 见齐 **N** 个有效团队成员签名才放行 Share 2。
+
+### 5.2 流程设计
+
+假设场景：3人团队 (Alice, Bob, Carol)，需 2 人同意才能转账。
+
+```mermaid
+sequenceDiagram
+    participant Alice as 成员 A (App)
+    participant Bob as 成员 B (App)
+    participant Operator as 运营方服务 (API)
+    participant Guardian as 鉴权代理 (Guardian)
+
+    Note over Alice: 1. Alice 发起转账提案
+    Alice->>Operator: 提交提案 (Proposal #101) + 签名 A
+    Operator->>Operator: 存储提案状态: [A:✅, B:⏳, C:⏳]
+    Operator-->>Bob: 推送待审批通知
+
+    Note over Bob: 2. Bob 审批同意
+    Bob->>Operator: 提交对 Proposal #101 的签名 B
+    Operator->>Operator: 更新状态: [A:✅, B:✅, C:⏳]
+    
+    Note over Operator: 3. 检测到满足策略 (2/3)
+    Operator->>Guardian: 请求 MPC 签名<br/>(附带: 交易详情 + [签名A, 签名B])
+
+    Note over Guardian: 4. 聚合验证
+    Guardian->>Guardian: 验证签名 A 属于 Alice? ✅
+    Guardian->>Guardian: 验证签名 B 属于 Bob? ✅
+    Guardian->>Guardian: 有效签名数(2) >= 策略阈值(2)? ✅
+    
+    Guardian->>Operator: 5. 参与 MPC 计算 (使用 Share 2)
+    Note right of Guardian: 生成最终链上签名
+```
+
+### 5.3 方案优势
+1.  **零 Gas 成本**：多人审批逻辑完全在链下完成，链上只发生一笔普通转账。
+2.  **隐私保护**：链上无法通过分析交易追溯团队结构或审批人信息。
+3.  **灵活配置**：随时调整审批规则（如换人、改阈值），无需迁移资产或重新部署合约。
+
+## 6. 方案优缺点总结
 
 | 维度 | 优势 | 劣势/挑战 |
 | :--- | :--- | :--- |
