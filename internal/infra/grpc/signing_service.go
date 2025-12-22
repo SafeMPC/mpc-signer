@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/kashguard/go-mpc-infra/internal/infra/signing"
-	pb "github.com/kashguard/go-mpc-infra/internal/pb/infra/v1"
+	pb "github.com/kashguard/go-mpc-infra/infra/v1"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"

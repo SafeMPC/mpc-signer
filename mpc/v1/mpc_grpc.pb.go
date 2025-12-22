@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.0
 // - protoc             v3.19.4
-// source: mpc/v1/mpc.proto
+// source: proto/mpc/v1/mpc.proto
 
 package v1
 
@@ -283,7 +283,7 @@ var MPCNode_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "mpc/v1/mpc.proto",
+	Metadata: "proto/mpc/v1/mpc.proto",
 }
 
 const (
@@ -467,5 +467,193 @@ var MPCCoordinator_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "mpc/v1/mpc.proto",
+	Metadata: "proto/mpc/v1/mpc.proto",
+}
+
+const (
+	MPCManagement_SetSigningPolicy_FullMethodName = "/mpc.v1.MPCManagement/SetSigningPolicy"
+	MPCManagement_GetSigningPolicy_FullMethodName = "/mpc.v1.MPCManagement/GetSigningPolicy"
+	MPCManagement_AddUserPasskey_FullMethodName   = "/mpc.v1.MPCManagement/AddUserPasskey"
+)
+
+// MPCManagementClient is the client API for MPCManagement service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// MPC管理服务
+type MPCManagementClient interface {
+	// 设置签名策略
+	SetSigningPolicy(ctx context.Context, in *SetSigningPolicyRequest, opts ...grpc.CallOption) (*SetSigningPolicyResponse, error)
+	// 获取签名策略
+	GetSigningPolicy(ctx context.Context, in *GetSigningPolicyRequest, opts ...grpc.CallOption) (*GetSigningPolicyResponse, error)
+	// 添加用户 Passkey 公钥
+	AddUserPasskey(ctx context.Context, in *AddUserPasskeyRequest, opts ...grpc.CallOption) (*AddUserPasskeyResponse, error)
+}
+
+type mPCManagementClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewMPCManagementClient(cc grpc.ClientConnInterface) MPCManagementClient {
+	return &mPCManagementClient{cc}
+}
+
+func (c *mPCManagementClient) SetSigningPolicy(ctx context.Context, in *SetSigningPolicyRequest, opts ...grpc.CallOption) (*SetSigningPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetSigningPolicyResponse)
+	err := c.cc.Invoke(ctx, MPCManagement_SetSigningPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mPCManagementClient) GetSigningPolicy(ctx context.Context, in *GetSigningPolicyRequest, opts ...grpc.CallOption) (*GetSigningPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSigningPolicyResponse)
+	err := c.cc.Invoke(ctx, MPCManagement_GetSigningPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mPCManagementClient) AddUserPasskey(ctx context.Context, in *AddUserPasskeyRequest, opts ...grpc.CallOption) (*AddUserPasskeyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddUserPasskeyResponse)
+	err := c.cc.Invoke(ctx, MPCManagement_AddUserPasskey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// MPCManagementServer is the server API for MPCManagement service.
+// All implementations must embed UnimplementedMPCManagementServer
+// for forward compatibility.
+//
+// MPC管理服务
+type MPCManagementServer interface {
+	// 设置签名策略
+	SetSigningPolicy(context.Context, *SetSigningPolicyRequest) (*SetSigningPolicyResponse, error)
+	// 获取签名策略
+	GetSigningPolicy(context.Context, *GetSigningPolicyRequest) (*GetSigningPolicyResponse, error)
+	// 添加用户 Passkey 公钥
+	AddUserPasskey(context.Context, *AddUserPasskeyRequest) (*AddUserPasskeyResponse, error)
+	mustEmbedUnimplementedMPCManagementServer()
+}
+
+// UnimplementedMPCManagementServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedMPCManagementServer struct{}
+
+func (UnimplementedMPCManagementServer) SetSigningPolicy(context.Context, *SetSigningPolicyRequest) (*SetSigningPolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetSigningPolicy not implemented")
+}
+func (UnimplementedMPCManagementServer) GetSigningPolicy(context.Context, *GetSigningPolicyRequest) (*GetSigningPolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSigningPolicy not implemented")
+}
+func (UnimplementedMPCManagementServer) AddUserPasskey(context.Context, *AddUserPasskeyRequest) (*AddUserPasskeyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AddUserPasskey not implemented")
+}
+func (UnimplementedMPCManagementServer) mustEmbedUnimplementedMPCManagementServer() {}
+func (UnimplementedMPCManagementServer) testEmbeddedByValue()                       {}
+
+// UnsafeMPCManagementServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to MPCManagementServer will
+// result in compilation errors.
+type UnsafeMPCManagementServer interface {
+	mustEmbedUnimplementedMPCManagementServer()
+}
+
+func RegisterMPCManagementServer(s grpc.ServiceRegistrar, srv MPCManagementServer) {
+	// If the following call panics, it indicates UnimplementedMPCManagementServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&MPCManagement_ServiceDesc, srv)
+}
+
+func _MPCManagement_SetSigningPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetSigningPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MPCManagementServer).SetSigningPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MPCManagement_SetSigningPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MPCManagementServer).SetSigningPolicy(ctx, req.(*SetSigningPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MPCManagement_GetSigningPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSigningPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MPCManagementServer).GetSigningPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MPCManagement_GetSigningPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MPCManagementServer).GetSigningPolicy(ctx, req.(*GetSigningPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MPCManagement_AddUserPasskey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddUserPasskeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MPCManagementServer).AddUserPasskey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MPCManagement_AddUserPasskey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MPCManagementServer).AddUserPasskey(ctx, req.(*AddUserPasskeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// MPCManagement_ServiceDesc is the grpc.ServiceDesc for MPCManagement service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var MPCManagement_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "mpc.v1.MPCManagement",
+	HandlerType: (*MPCManagementServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "SetSigningPolicy",
+			Handler:    _MPCManagement_SetSigningPolicy_Handler,
+		},
+		{
+			MethodName: "GetSigningPolicy",
+			Handler:    _MPCManagement_GetSigningPolicy_Handler,
+		},
+		{
+			MethodName: "AddUserPasskey",
+			Handler:    _MPCManagement_AddUserPasskey_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/mpc/v1/mpc.proto",
 }

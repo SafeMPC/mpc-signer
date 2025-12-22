@@ -6,7 +6,7 @@ import (
 	"github.com/go-openapi/swag"
 	"github.com/kashguard/go-mpc-infra/internal/api"
 	"github.com/kashguard/go-mpc-infra/internal/api/httperrors"
-	pb "github.com/kashguard/go-mpc-infra/internal/pb/infra/v1"
+	pb "github.com/kashguard/go-mpc-infra/infra/v1"
 	"github.com/kashguard/go-mpc-infra/internal/types"
 	"github.com/kashguard/go-mpc-infra/internal/util"
 	"github.com/labstack/echo/v4"

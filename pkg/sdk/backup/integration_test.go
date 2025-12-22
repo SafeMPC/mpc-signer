@@ -12,7 +12,7 @@ import (
 	"github.com/kashguard/go-mpc-infra/internal/infra/backup"
 	infra_grpc "github.com/kashguard/go-mpc-infra/internal/infra/grpc"
 	"github.com/kashguard/go-mpc-infra/internal/infra/storage"
-	pb "github.com/kashguard/go-mpc-infra/internal/pb/infra/v1"
+	pb "github.com/kashguard/go-mpc-infra/infra/v1"
 	sdk "github.com/kashguard/go-mpc-infra/pkg/sdk/backup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

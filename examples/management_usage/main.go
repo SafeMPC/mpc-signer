@@ -9,7 +9,7 @@ import (
 	"log"
 	"time"
 
-	pb "github.com/kashguard/go-mpc-infra/internal/pb/mpc/v1"
+	pb "github.com/kashguard/go-mpc-infra/mpc/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -58,14 +58,14 @@ func main() {
 	// Note: These calls do NOT require a signature in the current implementation.
 	// Access control should be handled via mTLS or network restrictions.
 
-	// 1. Add User Auth Key
-	fmt.Println("\n[Management] Adding User Auth Key...")
-	addKeyResp, err := mgmtClient.AddUserAuthKey(ctx, &pb.AddUserAuthKeyRequest{
-		KeyId:        keyID,
-		PublicKeyHex: pubKeyHex,
-		KeyType:      "ed25519",
-		MemberName:   "AdminUser",
-		Role:         "admin",
+	// 1. Add User Passkey
+	fmt.Println("\n[Management] Adding User Passkey...")
+	addKeyResp, err := mgmtClient.AddUserPasskey(ctx, &pb.AddUserPasskeyRequest{
+		CredentialId: "cred-" + keyID,
+		PublicKey:    pubKeyHex,
+		UserId:       "AdminUser",
+		DeviceName:   "Demo Device",
+		AdminAuth:    nil,
 	})
 	if err != nil {
 		// Note: This might fail if the server is not running or keyID is invalid in DB

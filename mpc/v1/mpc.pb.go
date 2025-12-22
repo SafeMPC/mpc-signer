@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v3.19.4
-// source: mpc/v1/mpc.proto
+// source: proto/mpc/v1/mpc.proto
 
 package v1
 
@@ -21,6 +21,444 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// 通用的 Admin 鉴权 Token
+type AdminAuthToken struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	ReqId             string                 `protobuf:"bytes,1,opt,name=req_id,json=reqId,proto3" json:"req_id,omitempty"`                                     // 请求ID (防重放)
+	UserId            string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`                                  // Admin 用户ID
+	PasskeySignature  []byte                 `protobuf:"bytes,3,opt,name=passkey_signature,json=passkeySignature,proto3" json:"passkey_signature,omitempty"`    // assertion signature
+	AuthenticatorData []byte                 `protobuf:"bytes,4,opt,name=authenticator_data,json=authenticatorData,proto3" json:"authenticator_data,omitempty"` // authData
+	ClientDataJson    []byte                 `protobuf:"bytes,5,opt,name=client_data_json,json=clientDataJson,proto3" json:"client_data_json,omitempty"`        // clientDataJSON
+	CredentialId      string                 `protobuf:"bytes,6,opt,name=credential_id,json=credentialId,proto3" json:"credential_id,omitempty"`                // credential ID
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *AdminAuthToken) Reset() {
+	*x = AdminAuthToken{}
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminAuthToken) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminAuthToken) ProtoMessage() {}
+
+func (x *AdminAuthToken) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminAuthToken.ProtoReflect.Descriptor instead.
+func (*AdminAuthToken) Descriptor() ([]byte, []int) {
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *AdminAuthToken) GetReqId() string {
+	if x != nil {
+		return x.ReqId
+	}
+	return ""
+}
+
+func (x *AdminAuthToken) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *AdminAuthToken) GetPasskeySignature() []byte {
+	if x != nil {
+		return x.PasskeySignature
+	}
+	return nil
+}
+
+func (x *AdminAuthToken) GetAuthenticatorData() []byte {
+	if x != nil {
+		return x.AuthenticatorData
+	}
+	return nil
+}
+
+func (x *AdminAuthToken) GetClientDataJson() []byte {
+	if x != nil {
+		return x.ClientDataJson
+	}
+	return nil
+}
+
+func (x *AdminAuthToken) GetCredentialId() string {
+	if x != nil {
+		return x.CredentialId
+	}
+	return ""
+}
+
+// 管理相关消息
+type SetSigningPolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	KeyId         string                 `protobuf:"bytes,1,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
+	PolicyType    string                 `protobuf:"bytes,2,opt,name=policy_type,json=policyType,proto3" json:"policy_type,omitempty"` // "single", "team"
+	MinSignatures int32                  `protobuf:"varint,3,opt,name=min_signatures,json=minSignatures,proto3" json:"min_signatures,omitempty"`
+	AdminAuth     *AdminAuthToken        `protobuf:"bytes,4,opt,name=admin_auth,json=adminAuth,proto3" json:"admin_auth,omitempty"` // Admin 鉴权
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetSigningPolicyRequest) Reset() {
+	*x = SetSigningPolicyRequest{}
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetSigningPolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetSigningPolicyRequest) ProtoMessage() {}
+
+func (x *SetSigningPolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetSigningPolicyRequest.ProtoReflect.Descriptor instead.
+func (*SetSigningPolicyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *SetSigningPolicyRequest) GetKeyId() string {
+	if x != nil {
+		return x.KeyId
+	}
+	return ""
+}
+
+func (x *SetSigningPolicyRequest) GetPolicyType() string {
+	if x != nil {
+		return x.PolicyType
+	}
+	return ""
+}
+
+func (x *SetSigningPolicyRequest) GetMinSignatures() int32 {
+	if x != nil {
+		return x.MinSignatures
+	}
+	return 0
+}
+
+func (x *SetSigningPolicyRequest) GetAdminAuth() *AdminAuthToken {
+	if x != nil {
+		return x.AdminAuth
+	}
+	return nil
+}
+
+type SetSigningPolicyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetSigningPolicyResponse) Reset() {
+	*x = SetSigningPolicyResponse{}
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetSigningPolicyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetSigningPolicyResponse) ProtoMessage() {}
+
+func (x *SetSigningPolicyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetSigningPolicyResponse.ProtoReflect.Descriptor instead.
+func (*SetSigningPolicyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *SetSigningPolicyResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *SetSigningPolicyResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type GetSigningPolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	KeyId         string                 `protobuf:"bytes,1,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSigningPolicyRequest) Reset() {
+	*x = GetSigningPolicyRequest{}
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSigningPolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSigningPolicyRequest) ProtoMessage() {}
+
+func (x *GetSigningPolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSigningPolicyRequest.ProtoReflect.Descriptor instead.
+func (*GetSigningPolicyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *GetSigningPolicyRequest) GetKeyId() string {
+	if x != nil {
+		return x.KeyId
+	}
+	return ""
+}
+
+type GetSigningPolicyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	KeyId         string                 `protobuf:"bytes,1,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
+	PolicyType    string                 `protobuf:"bytes,2,opt,name=policy_type,json=policyType,proto3" json:"policy_type,omitempty"`
+	MinSignatures int32                  `protobuf:"varint,3,opt,name=min_signatures,json=minSignatures,proto3" json:"min_signatures,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSigningPolicyResponse) Reset() {
+	*x = GetSigningPolicyResponse{}
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSigningPolicyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSigningPolicyResponse) ProtoMessage() {}
+
+func (x *GetSigningPolicyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSigningPolicyResponse.ProtoReflect.Descriptor instead.
+func (*GetSigningPolicyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *GetSigningPolicyResponse) GetKeyId() string {
+	if x != nil {
+		return x.KeyId
+	}
+	return ""
+}
+
+func (x *GetSigningPolicyResponse) GetPolicyType() string {
+	if x != nil {
+		return x.PolicyType
+	}
+	return ""
+}
+
+func (x *GetSigningPolicyResponse) GetMinSignatures() int32 {
+	if x != nil {
+		return x.MinSignatures
+	}
+	return 0
+}
+
+type AddUserPasskeyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CredentialId  string                 `protobuf:"bytes,1,opt,name=credential_id,json=credentialId,proto3" json:"credential_id,omitempty"` // WebAuthn Credential ID
+	PublicKey     string                 `protobuf:"bytes,2,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`          // COSE Key Format (Hex or Base64)
+	UserId        string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`                   // 关联的用户ID
+	DeviceName    string                 `protobuf:"bytes,4,opt,name=device_name,json=deviceName,proto3" json:"device_name,omitempty"`       // 设备名称
+	AdminAuth     *AdminAuthToken        `protobuf:"bytes,5,opt,name=admin_auth,json=adminAuth,proto3" json:"admin_auth,omitempty"`          // Admin 鉴权 (或用户自签名)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddUserPasskeyRequest) Reset() {
+	*x = AddUserPasskeyRequest{}
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddUserPasskeyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddUserPasskeyRequest) ProtoMessage() {}
+
+func (x *AddUserPasskeyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddUserPasskeyRequest.ProtoReflect.Descriptor instead.
+func (*AddUserPasskeyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *AddUserPasskeyRequest) GetCredentialId() string {
+	if x != nil {
+		return x.CredentialId
+	}
+	return ""
+}
+
+func (x *AddUserPasskeyRequest) GetPublicKey() string {
+	if x != nil {
+		return x.PublicKey
+	}
+	return ""
+}
+
+func (x *AddUserPasskeyRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *AddUserPasskeyRequest) GetDeviceName() string {
+	if x != nil {
+		return x.DeviceName
+	}
+	return ""
+}
+
+func (x *AddUserPasskeyRequest) GetAdminAuth() *AdminAuthToken {
+	if x != nil {
+		return x.AdminAuth
+	}
+	return nil
+}
+
+type AddUserPasskeyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddUserPasskeyResponse) Reset() {
+	*x = AddUserPasskeyResponse{}
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddUserPasskeyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddUserPasskeyResponse) ProtoMessage() {}
+
+func (x *AddUserPasskeyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddUserPasskeyResponse.ProtoReflect.Descriptor instead.
+func (*AddUserPasskeyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *AddUserPasskeyResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *AddUserPasskeyResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 // 会话相关消息
 type CreateSessionRequest struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
@@ -35,7 +473,7 @@ type CreateSessionRequest struct {
 
 func (x *CreateSessionRequest) Reset() {
 	*x = CreateSessionRequest{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[0]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -47,7 +485,7 @@ func (x *CreateSessionRequest) String() string {
 func (*CreateSessionRequest) ProtoMessage() {}
 
 func (x *CreateSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[0]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -60,7 +498,7 @@ func (x *CreateSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSessionRequest.ProtoReflect.Descriptor instead.
 func (*CreateSessionRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{0}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *CreateSessionRequest) GetKeyId() string {
@@ -113,7 +551,7 @@ type CreateSessionResponse struct {
 
 func (x *CreateSessionResponse) Reset() {
 	*x = CreateSessionResponse{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[1]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -125,7 +563,7 @@ func (x *CreateSessionResponse) String() string {
 func (*CreateSessionResponse) ProtoMessage() {}
 
 func (x *CreateSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[1]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -138,7 +576,7 @@ func (x *CreateSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSessionResponse.ProtoReflect.Descriptor instead.
 func (*CreateSessionResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{1}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *CreateSessionResponse) GetSessionId() string {
@@ -199,7 +637,7 @@ type SessionStatusRequest struct {
 
 func (x *SessionStatusRequest) Reset() {
 	*x = SessionStatusRequest{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[2]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -211,7 +649,7 @@ func (x *SessionStatusRequest) String() string {
 func (*SessionStatusRequest) ProtoMessage() {}
 
 func (x *SessionStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[2]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -224,7 +662,7 @@ func (x *SessionStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionStatusRequest.ProtoReflect.Descriptor instead.
 func (*SessionStatusRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{2}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SessionStatusRequest) GetSessionId() string {
@@ -251,7 +689,7 @@ type SessionStatusResponse struct {
 
 func (x *SessionStatusResponse) Reset() {
 	*x = SessionStatusResponse{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[3]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -263,7 +701,7 @@ func (x *SessionStatusResponse) String() string {
 func (*SessionStatusResponse) ProtoMessage() {}
 
 func (x *SessionStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[3]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -276,7 +714,7 @@ func (x *SessionStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionStatusResponse.ProtoReflect.Descriptor instead.
 func (*SessionStatusResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{3}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *SessionStatusResponse) GetSessionId() string {
@@ -356,7 +794,7 @@ type SubmitProtocolMessageRequest struct {
 
 func (x *SubmitProtocolMessageRequest) Reset() {
 	*x = SubmitProtocolMessageRequest{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[4]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -368,7 +806,7 @@ func (x *SubmitProtocolMessageRequest) String() string {
 func (*SubmitProtocolMessageRequest) ProtoMessage() {}
 
 func (x *SubmitProtocolMessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[4]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -381,7 +819,7 @@ func (x *SubmitProtocolMessageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitProtocolMessageRequest.ProtoReflect.Descriptor instead.
 func (*SubmitProtocolMessageRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{4}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *SubmitProtocolMessageRequest) GetSessionId() string {
@@ -431,7 +869,7 @@ type SubmitProtocolMessageResponse struct {
 
 func (x *SubmitProtocolMessageResponse) Reset() {
 	*x = SubmitProtocolMessageResponse{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[5]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -443,7 +881,7 @@ func (x *SubmitProtocolMessageResponse) String() string {
 func (*SubmitProtocolMessageResponse) ProtoMessage() {}
 
 func (x *SubmitProtocolMessageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[5]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -456,7 +894,7 @@ func (x *SubmitProtocolMessageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitProtocolMessageResponse.ProtoReflect.Descriptor instead.
 func (*SubmitProtocolMessageResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{5}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *SubmitProtocolMessageResponse) GetAccepted() bool {
@@ -489,14 +927,15 @@ type StartDKGRequest struct {
 	Curve         string                 `protobuf:"bytes,4,opt,name=curve,proto3" json:"curve,omitempty"`         // 例：secp256k1
 	Threshold     int32                  `protobuf:"varint,5,opt,name=threshold,proto3" json:"threshold,omitempty"`
 	TotalNodes    int32                  `protobuf:"varint,6,opt,name=total_nodes,json=totalNodes,proto3" json:"total_nodes,omitempty"`
-	NodeIds       []string               `protobuf:"bytes,7,rep,name=node_ids,json=nodeIds,proto3" json:"node_ids,omitempty"` // 参与节点列表
+	NodeIds       []string               `protobuf:"bytes,7,rep,name=node_ids,json=nodeIds,proto3" json:"node_ids,omitempty"`       // 参与节点列表
+	AdminAuth     *AdminAuthToken        `protobuf:"bytes,8,opt,name=admin_auth,json=adminAuth,proto3" json:"admin_auth,omitempty"` // Admin 鉴权
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *StartDKGRequest) Reset() {
 	*x = StartDKGRequest{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[6]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -508,7 +947,7 @@ func (x *StartDKGRequest) String() string {
 func (*StartDKGRequest) ProtoMessage() {}
 
 func (x *StartDKGRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[6]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -521,7 +960,7 @@ func (x *StartDKGRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartDKGRequest.ProtoReflect.Descriptor instead.
 func (*StartDKGRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{6}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *StartDKGRequest) GetSessionId() string {
@@ -573,6 +1012,13 @@ func (x *StartDKGRequest) GetNodeIds() []string {
 	return nil
 }
 
+func (x *StartDKGRequest) GetAdminAuth() *AdminAuthToken {
+	if x != nil {
+		return x.AdminAuth
+	}
+	return nil
+}
+
 type StartDKGResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Started       bool                   `protobuf:"varint,1,opt,name=started,proto3" json:"started,omitempty"`
@@ -583,7 +1029,7 @@ type StartDKGResponse struct {
 
 func (x *StartDKGResponse) Reset() {
 	*x = StartDKGResponse{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[7]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -595,7 +1041,7 @@ func (x *StartDKGResponse) String() string {
 func (*StartDKGResponse) ProtoMessage() {}
 
 func (x *StartDKGResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[7]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -608,7 +1054,7 @@ func (x *StartDKGResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartDKGResponse.ProtoReflect.Descriptor instead.
 func (*StartDKGResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{7}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *StartDKGResponse) GetStarted() bool {
@@ -645,7 +1091,7 @@ type StartSignRequest struct {
 
 func (x *StartSignRequest) Reset() {
 	*x = StartSignRequest{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[8]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -657,7 +1103,7 @@ func (x *StartSignRequest) String() string {
 func (*StartSignRequest) ProtoMessage() {}
 
 func (x *StartSignRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[8]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -670,7 +1116,7 @@ func (x *StartSignRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartSignRequest.ProtoReflect.Descriptor instead.
 func (*StartSignRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{8}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *StartSignRequest) GetSessionId() string {
@@ -760,7 +1206,7 @@ type StartSignResponse struct {
 
 func (x *StartSignResponse) Reset() {
 	*x = StartSignResponse{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[9]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -772,7 +1218,7 @@ func (x *StartSignResponse) String() string {
 func (*StartSignResponse) ProtoMessage() {}
 
 func (x *StartSignResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[9]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -785,7 +1231,7 @@ func (x *StartSignResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartSignResponse.ProtoReflect.Descriptor instead.
 func (*StartSignResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{9}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *StartSignResponse) GetStarted() bool {
@@ -811,13 +1257,14 @@ type StartResharingRequest struct {
 	NewNodeIds    []string               `protobuf:"bytes,4,rep,name=new_node_ids,json=newNodeIds,proto3" json:"new_node_ids,omitempty"` // 新参与节点列表
 	OldThreshold  int32                  `protobuf:"varint,5,opt,name=old_threshold,json=oldThreshold,proto3" json:"old_threshold,omitempty"`
 	NewThreshold  int32                  `protobuf:"varint,6,opt,name=new_threshold,json=newThreshold,proto3" json:"new_threshold,omitempty"`
+	AdminAuth     *AdminAuthToken        `protobuf:"bytes,7,opt,name=admin_auth,json=adminAuth,proto3" json:"admin_auth,omitempty"` // Admin 鉴权
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *StartResharingRequest) Reset() {
 	*x = StartResharingRequest{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[10]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -829,7 +1276,7 @@ func (x *StartResharingRequest) String() string {
 func (*StartResharingRequest) ProtoMessage() {}
 
 func (x *StartResharingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[10]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -842,7 +1289,7 @@ func (x *StartResharingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartResharingRequest.ProtoReflect.Descriptor instead.
 func (*StartResharingRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{10}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *StartResharingRequest) GetSessionId() string {
@@ -887,6 +1334,13 @@ func (x *StartResharingRequest) GetNewThreshold() int32 {
 	return 0
 }
 
+func (x *StartResharingRequest) GetAdminAuth() *AdminAuthToken {
+	if x != nil {
+		return x.AdminAuth
+	}
+	return nil
+}
+
 type StartResharingResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Started       bool                   `protobuf:"varint,1,opt,name=started,proto3" json:"started,omitempty"`
@@ -897,7 +1351,7 @@ type StartResharingResponse struct {
 
 func (x *StartResharingResponse) Reset() {
 	*x = StartResharingResponse{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[11]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -909,7 +1363,7 @@ func (x *StartResharingResponse) String() string {
 func (*StartResharingResponse) ProtoMessage() {}
 
 func (x *StartResharingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[11]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -922,7 +1376,7 @@ func (x *StartResharingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartResharingResponse.ProtoReflect.Descriptor instead.
 func (*StartResharingResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{11}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *StartResharingResponse) GetStarted() bool {
@@ -949,7 +1403,7 @@ type AggregateRequest struct {
 
 func (x *AggregateRequest) Reset() {
 	*x = AggregateRequest{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[12]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -961,7 +1415,7 @@ func (x *AggregateRequest) String() string {
 func (*AggregateRequest) ProtoMessage() {}
 
 func (x *AggregateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[12]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -974,7 +1428,7 @@ func (x *AggregateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AggregateRequest.ProtoReflect.Descriptor instead.
 func (*AggregateRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{12}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *AggregateRequest) GetSessionId() string {
@@ -997,7 +1451,7 @@ type AggregateResponse struct {
 
 func (x *AggregateResponse) Reset() {
 	*x = AggregateResponse{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[13]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1009,7 +1463,7 @@ func (x *AggregateResponse) String() string {
 func (*AggregateResponse) ProtoMessage() {}
 
 func (x *AggregateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[13]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1022,7 +1476,7 @@ func (x *AggregateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AggregateResponse.ProtoReflect.Descriptor instead.
 func (*AggregateResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{13}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *AggregateResponse) GetSuccess() bool {
@@ -1072,7 +1526,7 @@ type HeartbeatRequest struct {
 
 func (x *HeartbeatRequest) Reset() {
 	*x = HeartbeatRequest{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[14]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1084,7 +1538,7 @@ func (x *HeartbeatRequest) String() string {
 func (*HeartbeatRequest) ProtoMessage() {}
 
 func (x *HeartbeatRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[14]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1097,7 +1551,7 @@ func (x *HeartbeatRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatRequest.ProtoReflect.Descriptor instead.
 func (*HeartbeatRequest) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{14}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *HeartbeatRequest) GetNodeId() string {
@@ -1133,7 +1587,7 @@ type HeartbeatResponse struct {
 
 func (x *HeartbeatResponse) Reset() {
 	*x = HeartbeatResponse{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[15]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1145,7 +1599,7 @@ func (x *HeartbeatResponse) String() string {
 func (*HeartbeatResponse) ProtoMessage() {}
 
 func (x *HeartbeatResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[15]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1158,7 +1612,7 @@ func (x *HeartbeatResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatResponse.ProtoReflect.Descriptor instead.
 func (*HeartbeatResponse) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{15}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *HeartbeatResponse) GetAlive() bool {
@@ -1191,17 +1645,23 @@ func (x *HeartbeatResponse) GetInstructions() map[string]string {
 
 // 鉴权令牌列表
 type StartSignRequest_AuthToken struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	PublicKey     string                 `protobuf:"bytes,1,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"` // 签名者的公钥 (用于快速查找)
-	Signature     []byte                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`                  // 对本次交易 (message/message_hex) 的签名
-	MemberId      string                 `protobuf:"bytes,3,opt,name=member_id,json=memberId,proto3" json:"member_id,omitempty"`    // 可选：成员标识
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	UserId            string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`                                  // 签名者用户ID
+	PasskeySignature  []byte                 `protobuf:"bytes,2,opt,name=passkey_signature,json=passkeySignature,proto3" json:"passkey_signature,omitempty"`    // WebAuthn Assertion Signature
+	AuthenticatorData []byte                 `protobuf:"bytes,3,opt,name=authenticator_data,json=authenticatorData,proto3" json:"authenticator_data,omitempty"` // WebAuthn AuthData
+	ClientDataJson    []byte                 `protobuf:"bytes,4,opt,name=client_data_json,json=clientDataJson,proto3" json:"client_data_json,omitempty"`        // WebAuthn ClientDataJSON
+	CredentialId      string                 `protobuf:"bytes,5,opt,name=credential_id,json=credentialId,proto3" json:"credential_id,omitempty"`                // WebAuthn Credential ID
+	// 兼容字段 (可保留或废弃)
+	PublicKey     string `protobuf:"bytes,6,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	Signature     []byte `protobuf:"bytes,7,opt,name=signature,proto3" json:"signature,omitempty"`
+	MemberId      string `protobuf:"bytes,8,opt,name=member_id,json=memberId,proto3" json:"member_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *StartSignRequest_AuthToken) Reset() {
 	*x = StartSignRequest_AuthToken{}
-	mi := &file_mpc_v1_mpc_proto_msgTypes[16]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1213,7 +1673,7 @@ func (x *StartSignRequest_AuthToken) String() string {
 func (*StartSignRequest_AuthToken) ProtoMessage() {}
 
 func (x *StartSignRequest_AuthToken) ProtoReflect() protoreflect.Message {
-	mi := &file_mpc_v1_mpc_proto_msgTypes[16]
+	mi := &file_proto_mpc_v1_mpc_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1226,7 +1686,42 @@ func (x *StartSignRequest_AuthToken) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartSignRequest_AuthToken.ProtoReflect.Descriptor instead.
 func (*StartSignRequest_AuthToken) Descriptor() ([]byte, []int) {
-	return file_mpc_v1_mpc_proto_rawDescGZIP(), []int{8, 0}
+	return file_proto_mpc_v1_mpc_proto_rawDescGZIP(), []int{15, 0}
+}
+
+func (x *StartSignRequest_AuthToken) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *StartSignRequest_AuthToken) GetPasskeySignature() []byte {
+	if x != nil {
+		return x.PasskeySignature
+	}
+	return nil
+}
+
+func (x *StartSignRequest_AuthToken) GetAuthenticatorData() []byte {
+	if x != nil {
+		return x.AuthenticatorData
+	}
+	return nil
+}
+
+func (x *StartSignRequest_AuthToken) GetClientDataJson() []byte {
+	if x != nil {
+		return x.ClientDataJson
+	}
+	return nil
+}
+
+func (x *StartSignRequest_AuthToken) GetCredentialId() string {
+	if x != nil {
+		return x.CredentialId
+	}
+	return ""
 }
 
 func (x *StartSignRequest_AuthToken) GetPublicKey() string {
@@ -1250,11 +1745,47 @@ func (x *StartSignRequest_AuthToken) GetMemberId() string {
 	return ""
 }
 
-var File_mpc_v1_mpc_proto protoreflect.FileDescriptor
+var File_proto_mpc_v1_mpc_proto protoreflect.FileDescriptor
 
-const file_mpc_v1_mpc_proto_rawDesc = "" +
+const file_proto_mpc_v1_mpc_proto_rawDesc = "" +
 	"\n" +
-	"\x10mpc/v1/mpc.proto\x12\x06mpc.v1\"\xb9\x01\n" +
+	"\x16proto/mpc/v1/mpc.proto\x12\x06mpc.v1\"\xeb\x01\n" +
+	"\x0eAdminAuthToken\x12\x15\n" +
+	"\x06req_id\x18\x01 \x01(\tR\x05reqId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x12+\n" +
+	"\x11passkey_signature\x18\x03 \x01(\fR\x10passkeySignature\x12-\n" +
+	"\x12authenticator_data\x18\x04 \x01(\fR\x11authenticatorData\x12(\n" +
+	"\x10client_data_json\x18\x05 \x01(\fR\x0eclientDataJson\x12#\n" +
+	"\rcredential_id\x18\x06 \x01(\tR\fcredentialId\"\xaf\x01\n" +
+	"\x17SetSigningPolicyRequest\x12\x15\n" +
+	"\x06key_id\x18\x01 \x01(\tR\x05keyId\x12\x1f\n" +
+	"\vpolicy_type\x18\x02 \x01(\tR\n" +
+	"policyType\x12%\n" +
+	"\x0emin_signatures\x18\x03 \x01(\x05R\rminSignatures\x125\n" +
+	"\n" +
+	"admin_auth\x18\x04 \x01(\v2\x16.mpc.v1.AdminAuthTokenR\tadminAuth\"N\n" +
+	"\x18SetSigningPolicyResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"0\n" +
+	"\x17GetSigningPolicyRequest\x12\x15\n" +
+	"\x06key_id\x18\x01 \x01(\tR\x05keyId\"y\n" +
+	"\x18GetSigningPolicyResponse\x12\x15\n" +
+	"\x06key_id\x18\x01 \x01(\tR\x05keyId\x12\x1f\n" +
+	"\vpolicy_type\x18\x02 \x01(\tR\n" +
+	"policyType\x12%\n" +
+	"\x0emin_signatures\x18\x03 \x01(\x05R\rminSignatures\"\xcc\x01\n" +
+	"\x15AddUserPasskeyRequest\x12#\n" +
+	"\rcredential_id\x18\x01 \x01(\tR\fcredentialId\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x02 \x01(\tR\tpublicKey\x12\x17\n" +
+	"\auser_id\x18\x03 \x01(\tR\x06userId\x12\x1f\n" +
+	"\vdevice_name\x18\x04 \x01(\tR\n" +
+	"deviceName\x125\n" +
+	"\n" +
+	"admin_auth\x18\x05 \x01(\v2\x16.mpc.v1.AdminAuthTokenR\tadminAuth\"L\n" +
+	"\x16AddUserPasskeyResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xb9\x01\n" +
 	"\x14CreateSessionRequest\x12\x15\n" +
 	"\x06key_id\x18\x01 \x01(\tR\x05keyId\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\fR\amessage\x12\x1a\n" +
@@ -1300,7 +1831,7 @@ const file_mpc_v1_mpc_proto_rawDesc = "" +
 	"\baccepted\x18\x01 \x01(\bR\baccepted\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1d\n" +
 	"\n" +
-	"next_round\x18\x03 \x01(\x05R\tnextRound\"\xd5\x01\n" +
+	"next_round\x18\x03 \x01(\x05R\tnextRound\"\x8c\x02\n" +
 	"\x0fStartDKGRequest\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x15\n" +
@@ -1310,10 +1841,12 @@ const file_mpc_v1_mpc_proto_rawDesc = "" +
 	"\tthreshold\x18\x05 \x01(\x05R\tthreshold\x12\x1f\n" +
 	"\vtotal_nodes\x18\x06 \x01(\x05R\n" +
 	"totalNodes\x12\x19\n" +
-	"\bnode_ids\x18\a \x03(\tR\anodeIds\"F\n" +
+	"\bnode_ids\x18\a \x03(\tR\anodeIds\x125\n" +
+	"\n" +
+	"admin_auth\x18\b \x01(\v2\x16.mpc.v1.AdminAuthTokenR\tadminAuth\"F\n" +
 	"\x10StartDKGResponse\x12\x18\n" +
 	"\astarted\x18\x01 \x01(\bR\astarted\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\xfa\x03\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xbf\x05\n" +
 	"\x10StartSignRequest\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x15\n" +
@@ -1330,15 +1863,20 @@ const file_mpc_v1_mpc_proto_rawDesc = "" +
 	"\x11parent_chain_code\x18\n" +
 	" \x01(\fR\x0fparentChainCode\x12C\n" +
 	"\vauth_tokens\x18\v \x03(\v2\".mpc.v1.StartSignRequest.AuthTokenR\n" +
-	"authTokens\x1ae\n" +
-	"\tAuthToken\x12\x1d\n" +
+	"authTokens\x1a\xa9\x02\n" +
+	"\tAuthToken\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12+\n" +
+	"\x11passkey_signature\x18\x02 \x01(\fR\x10passkeySignature\x12-\n" +
+	"\x12authenticator_data\x18\x03 \x01(\fR\x11authenticatorData\x12(\n" +
+	"\x10client_data_json\x18\x04 \x01(\fR\x0eclientDataJson\x12#\n" +
+	"\rcredential_id\x18\x05 \x01(\tR\fcredentialId\x12\x1d\n" +
 	"\n" +
-	"public_key\x18\x01 \x01(\tR\tpublicKey\x12\x1c\n" +
-	"\tsignature\x18\x02 \x01(\fR\tsignature\x12\x1b\n" +
-	"\tmember_id\x18\x03 \x01(\tR\bmemberId\"G\n" +
+	"public_key\x18\x06 \x01(\tR\tpublicKey\x12\x1c\n" +
+	"\tsignature\x18\a \x01(\fR\tsignature\x12\x1b\n" +
+	"\tmember_id\x18\b \x01(\tR\bmemberId\"G\n" +
 	"\x11StartSignResponse\x12\x18\n" +
 	"\astarted\x18\x01 \x01(\bR\astarted\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\xdb\x01\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\x92\x02\n" +
 	"\x15StartResharingRequest\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x15\n" +
@@ -1348,7 +1886,9 @@ const file_mpc_v1_mpc_proto_rawDesc = "" +
 	"\fnew_node_ids\x18\x04 \x03(\tR\n" +
 	"newNodeIds\x12#\n" +
 	"\rold_threshold\x18\x05 \x01(\x05R\foldThreshold\x12#\n" +
-	"\rnew_threshold\x18\x06 \x01(\x05R\fnewThreshold\"L\n" +
+	"\rnew_threshold\x18\x06 \x01(\x05R\fnewThreshold\x125\n" +
+	"\n" +
+	"admin_auth\x18\a \x01(\v2\x16.mpc.v1.AdminAuthTokenR\tadminAuth\"L\n" +
 	"\x16StartResharingResponse\x12\x18\n" +
 	"\astarted\x18\x01 \x01(\bR\astarted\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"1\n" +
@@ -1388,89 +1928,110 @@ const file_mpc_v1_mpc_proto_rawDesc = "" +
 	"\x0eMPCCoordinator\x12S\n" +
 	"\x14CreateSigningSession\x12\x1c.mpc.v1.CreateSessionRequest\x1a\x1d.mpc.v1.CreateSessionResponse\x12O\n" +
 	"\x10GetSessionStatus\x12\x1c.mpc.v1.SessionStatusRequest\x1a\x1d.mpc.v1.SessionStatusResponse\x12J\n" +
-	"\x13AggregateSignatures\x12\x18.mpc.v1.AggregateRequest\x1a\x19.mpc.v1.AggregateResponseB6Z4github.com/kashguard/go-mpc-infra/internal/pb/mpc/v1b\x06proto3"
+	"\x13AggregateSignatures\x12\x18.mpc.v1.AggregateRequest\x1a\x19.mpc.v1.AggregateResponse2\x8e\x02\n" +
+	"\rMPCManagement\x12U\n" +
+	"\x10SetSigningPolicy\x12\x1f.mpc.v1.SetSigningPolicyRequest\x1a .mpc.v1.SetSigningPolicyResponse\x12U\n" +
+	"\x10GetSigningPolicy\x12\x1f.mpc.v1.GetSigningPolicyRequest\x1a .mpc.v1.GetSigningPolicyResponse\x12O\n" +
+	"\x0eAddUserPasskey\x12\x1d.mpc.v1.AddUserPasskeyRequest\x1a\x1e.mpc.v1.AddUserPasskeyResponseB6Z4github.com/kashguard/go-mpc-infra/mpc/v1b\x06proto3"
 
 var (
-	file_mpc_v1_mpc_proto_rawDescOnce sync.Once
-	file_mpc_v1_mpc_proto_rawDescData []byte
+	file_proto_mpc_v1_mpc_proto_rawDescOnce sync.Once
+	file_proto_mpc_v1_mpc_proto_rawDescData []byte
 )
 
-func file_mpc_v1_mpc_proto_rawDescGZIP() []byte {
-	file_mpc_v1_mpc_proto_rawDescOnce.Do(func() {
-		file_mpc_v1_mpc_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_mpc_v1_mpc_proto_rawDesc), len(file_mpc_v1_mpc_proto_rawDesc)))
+func file_proto_mpc_v1_mpc_proto_rawDescGZIP() []byte {
+	file_proto_mpc_v1_mpc_proto_rawDescOnce.Do(func() {
+		file_proto_mpc_v1_mpc_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_mpc_v1_mpc_proto_rawDesc), len(file_proto_mpc_v1_mpc_proto_rawDesc)))
 	})
-	return file_mpc_v1_mpc_proto_rawDescData
+	return file_proto_mpc_v1_mpc_proto_rawDescData
 }
 
-var file_mpc_v1_mpc_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
-var file_mpc_v1_mpc_proto_goTypes = []any{
-	(*CreateSessionRequest)(nil),          // 0: mpc.v1.CreateSessionRequest
-	(*CreateSessionResponse)(nil),         // 1: mpc.v1.CreateSessionResponse
-	(*SessionStatusRequest)(nil),          // 2: mpc.v1.SessionStatusRequest
-	(*SessionStatusResponse)(nil),         // 3: mpc.v1.SessionStatusResponse
-	(*SubmitProtocolMessageRequest)(nil),  // 4: mpc.v1.SubmitProtocolMessageRequest
-	(*SubmitProtocolMessageResponse)(nil), // 5: mpc.v1.SubmitProtocolMessageResponse
-	(*StartDKGRequest)(nil),               // 6: mpc.v1.StartDKGRequest
-	(*StartDKGResponse)(nil),              // 7: mpc.v1.StartDKGResponse
-	(*StartSignRequest)(nil),              // 8: mpc.v1.StartSignRequest
-	(*StartSignResponse)(nil),             // 9: mpc.v1.StartSignResponse
-	(*StartResharingRequest)(nil),         // 10: mpc.v1.StartResharingRequest
-	(*StartResharingResponse)(nil),        // 11: mpc.v1.StartResharingResponse
-	(*AggregateRequest)(nil),              // 12: mpc.v1.AggregateRequest
-	(*AggregateResponse)(nil),             // 13: mpc.v1.AggregateResponse
-	(*HeartbeatRequest)(nil),              // 14: mpc.v1.HeartbeatRequest
-	(*HeartbeatResponse)(nil),             // 15: mpc.v1.HeartbeatResponse
-	(*StartSignRequest_AuthToken)(nil),    // 16: mpc.v1.StartSignRequest.AuthToken
-	nil,                                   // 17: mpc.v1.HeartbeatRequest.StatusInfoEntry
-	nil,                                   // 18: mpc.v1.HeartbeatResponse.InstructionsEntry
+var file_proto_mpc_v1_mpc_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_proto_mpc_v1_mpc_proto_goTypes = []any{
+	(*AdminAuthToken)(nil),                // 0: mpc.v1.AdminAuthToken
+	(*SetSigningPolicyRequest)(nil),       // 1: mpc.v1.SetSigningPolicyRequest
+	(*SetSigningPolicyResponse)(nil),      // 2: mpc.v1.SetSigningPolicyResponse
+	(*GetSigningPolicyRequest)(nil),       // 3: mpc.v1.GetSigningPolicyRequest
+	(*GetSigningPolicyResponse)(nil),      // 4: mpc.v1.GetSigningPolicyResponse
+	(*AddUserPasskeyRequest)(nil),         // 5: mpc.v1.AddUserPasskeyRequest
+	(*AddUserPasskeyResponse)(nil),        // 6: mpc.v1.AddUserPasskeyResponse
+	(*CreateSessionRequest)(nil),          // 7: mpc.v1.CreateSessionRequest
+	(*CreateSessionResponse)(nil),         // 8: mpc.v1.CreateSessionResponse
+	(*SessionStatusRequest)(nil),          // 9: mpc.v1.SessionStatusRequest
+	(*SessionStatusResponse)(nil),         // 10: mpc.v1.SessionStatusResponse
+	(*SubmitProtocolMessageRequest)(nil),  // 11: mpc.v1.SubmitProtocolMessageRequest
+	(*SubmitProtocolMessageResponse)(nil), // 12: mpc.v1.SubmitProtocolMessageResponse
+	(*StartDKGRequest)(nil),               // 13: mpc.v1.StartDKGRequest
+	(*StartDKGResponse)(nil),              // 14: mpc.v1.StartDKGResponse
+	(*StartSignRequest)(nil),              // 15: mpc.v1.StartSignRequest
+	(*StartSignResponse)(nil),             // 16: mpc.v1.StartSignResponse
+	(*StartResharingRequest)(nil),         // 17: mpc.v1.StartResharingRequest
+	(*StartResharingResponse)(nil),        // 18: mpc.v1.StartResharingResponse
+	(*AggregateRequest)(nil),              // 19: mpc.v1.AggregateRequest
+	(*AggregateResponse)(nil),             // 20: mpc.v1.AggregateResponse
+	(*HeartbeatRequest)(nil),              // 21: mpc.v1.HeartbeatRequest
+	(*HeartbeatResponse)(nil),             // 22: mpc.v1.HeartbeatResponse
+	(*StartSignRequest_AuthToken)(nil),    // 23: mpc.v1.StartSignRequest.AuthToken
+	nil,                                   // 24: mpc.v1.HeartbeatRequest.StatusInfoEntry
+	nil,                                   // 25: mpc.v1.HeartbeatResponse.InstructionsEntry
 }
-var file_mpc_v1_mpc_proto_depIdxs = []int32{
-	16, // 0: mpc.v1.StartSignRequest.auth_tokens:type_name -> mpc.v1.StartSignRequest.AuthToken
-	17, // 1: mpc.v1.HeartbeatRequest.status_info:type_name -> mpc.v1.HeartbeatRequest.StatusInfoEntry
-	18, // 2: mpc.v1.HeartbeatResponse.instructions:type_name -> mpc.v1.HeartbeatResponse.InstructionsEntry
-	4,  // 3: mpc.v1.MPCNode.SubmitProtocolMessage:input_type -> mpc.v1.SubmitProtocolMessageRequest
-	6,  // 4: mpc.v1.MPCNode.StartDKG:input_type -> mpc.v1.StartDKGRequest
-	8,  // 5: mpc.v1.MPCNode.StartSign:input_type -> mpc.v1.StartSignRequest
-	10, // 6: mpc.v1.MPCNode.StartResharing:input_type -> mpc.v1.StartResharingRequest
-	14, // 7: mpc.v1.MPCNode.Heartbeat:input_type -> mpc.v1.HeartbeatRequest
-	0,  // 8: mpc.v1.MPCCoordinator.CreateSigningSession:input_type -> mpc.v1.CreateSessionRequest
-	2,  // 9: mpc.v1.MPCCoordinator.GetSessionStatus:input_type -> mpc.v1.SessionStatusRequest
-	12, // 10: mpc.v1.MPCCoordinator.AggregateSignatures:input_type -> mpc.v1.AggregateRequest
-	5,  // 11: mpc.v1.MPCNode.SubmitProtocolMessage:output_type -> mpc.v1.SubmitProtocolMessageResponse
-	7,  // 12: mpc.v1.MPCNode.StartDKG:output_type -> mpc.v1.StartDKGResponse
-	9,  // 13: mpc.v1.MPCNode.StartSign:output_type -> mpc.v1.StartSignResponse
-	11, // 14: mpc.v1.MPCNode.StartResharing:output_type -> mpc.v1.StartResharingResponse
-	15, // 15: mpc.v1.MPCNode.Heartbeat:output_type -> mpc.v1.HeartbeatResponse
-	1,  // 16: mpc.v1.MPCCoordinator.CreateSigningSession:output_type -> mpc.v1.CreateSessionResponse
-	3,  // 17: mpc.v1.MPCCoordinator.GetSessionStatus:output_type -> mpc.v1.SessionStatusResponse
-	13, // 18: mpc.v1.MPCCoordinator.AggregateSignatures:output_type -> mpc.v1.AggregateResponse
-	11, // [11:19] is the sub-list for method output_type
-	3,  // [3:11] is the sub-list for method input_type
-	3,  // [3:3] is the sub-list for extension type_name
-	3,  // [3:3] is the sub-list for extension extendee
-	0,  // [0:3] is the sub-list for field type_name
+var file_proto_mpc_v1_mpc_proto_depIdxs = []int32{
+	0,  // 0: mpc.v1.SetSigningPolicyRequest.admin_auth:type_name -> mpc.v1.AdminAuthToken
+	0,  // 1: mpc.v1.AddUserPasskeyRequest.admin_auth:type_name -> mpc.v1.AdminAuthToken
+	0,  // 2: mpc.v1.StartDKGRequest.admin_auth:type_name -> mpc.v1.AdminAuthToken
+	23, // 3: mpc.v1.StartSignRequest.auth_tokens:type_name -> mpc.v1.StartSignRequest.AuthToken
+	0,  // 4: mpc.v1.StartResharingRequest.admin_auth:type_name -> mpc.v1.AdminAuthToken
+	24, // 5: mpc.v1.HeartbeatRequest.status_info:type_name -> mpc.v1.HeartbeatRequest.StatusInfoEntry
+	25, // 6: mpc.v1.HeartbeatResponse.instructions:type_name -> mpc.v1.HeartbeatResponse.InstructionsEntry
+	11, // 7: mpc.v1.MPCNode.SubmitProtocolMessage:input_type -> mpc.v1.SubmitProtocolMessageRequest
+	13, // 8: mpc.v1.MPCNode.StartDKG:input_type -> mpc.v1.StartDKGRequest
+	15, // 9: mpc.v1.MPCNode.StartSign:input_type -> mpc.v1.StartSignRequest
+	17, // 10: mpc.v1.MPCNode.StartResharing:input_type -> mpc.v1.StartResharingRequest
+	21, // 11: mpc.v1.MPCNode.Heartbeat:input_type -> mpc.v1.HeartbeatRequest
+	7,  // 12: mpc.v1.MPCCoordinator.CreateSigningSession:input_type -> mpc.v1.CreateSessionRequest
+	9,  // 13: mpc.v1.MPCCoordinator.GetSessionStatus:input_type -> mpc.v1.SessionStatusRequest
+	19, // 14: mpc.v1.MPCCoordinator.AggregateSignatures:input_type -> mpc.v1.AggregateRequest
+	1,  // 15: mpc.v1.MPCManagement.SetSigningPolicy:input_type -> mpc.v1.SetSigningPolicyRequest
+	3,  // 16: mpc.v1.MPCManagement.GetSigningPolicy:input_type -> mpc.v1.GetSigningPolicyRequest
+	5,  // 17: mpc.v1.MPCManagement.AddUserPasskey:input_type -> mpc.v1.AddUserPasskeyRequest
+	12, // 18: mpc.v1.MPCNode.SubmitProtocolMessage:output_type -> mpc.v1.SubmitProtocolMessageResponse
+	14, // 19: mpc.v1.MPCNode.StartDKG:output_type -> mpc.v1.StartDKGResponse
+	16, // 20: mpc.v1.MPCNode.StartSign:output_type -> mpc.v1.StartSignResponse
+	18, // 21: mpc.v1.MPCNode.StartResharing:output_type -> mpc.v1.StartResharingResponse
+	22, // 22: mpc.v1.MPCNode.Heartbeat:output_type -> mpc.v1.HeartbeatResponse
+	8,  // 23: mpc.v1.MPCCoordinator.CreateSigningSession:output_type -> mpc.v1.CreateSessionResponse
+	10, // 24: mpc.v1.MPCCoordinator.GetSessionStatus:output_type -> mpc.v1.SessionStatusResponse
+	20, // 25: mpc.v1.MPCCoordinator.AggregateSignatures:output_type -> mpc.v1.AggregateResponse
+	2,  // 26: mpc.v1.MPCManagement.SetSigningPolicy:output_type -> mpc.v1.SetSigningPolicyResponse
+	4,  // 27: mpc.v1.MPCManagement.GetSigningPolicy:output_type -> mpc.v1.GetSigningPolicyResponse
+	6,  // 28: mpc.v1.MPCManagement.AddUserPasskey:output_type -> mpc.v1.AddUserPasskeyResponse
+	18, // [18:29] is the sub-list for method output_type
+	7,  // [7:18] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
-func init() { file_mpc_v1_mpc_proto_init() }
-func file_mpc_v1_mpc_proto_init() {
-	if File_mpc_v1_mpc_proto != nil {
+func init() { file_proto_mpc_v1_mpc_proto_init() }
+func file_proto_mpc_v1_mpc_proto_init() {
+	if File_proto_mpc_v1_mpc_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mpc_v1_mpc_proto_rawDesc), len(file_mpc_v1_mpc_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_mpc_v1_mpc_proto_rawDesc), len(file_proto_mpc_v1_mpc_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   19,
+			NumMessages:   26,
 			NumExtensions: 0,
-			NumServices:   2,
+			NumServices:   3,
 		},
-		GoTypes:           file_mpc_v1_mpc_proto_goTypes,
-		DependencyIndexes: file_mpc_v1_mpc_proto_depIdxs,
-		MessageInfos:      file_mpc_v1_mpc_proto_msgTypes,
+		GoTypes:           file_proto_mpc_v1_mpc_proto_goTypes,
+		DependencyIndexes: file_proto_mpc_v1_mpc_proto_depIdxs,
+		MessageInfos:      file_proto_mpc_v1_mpc_proto_msgTypes,
 	}.Build()
-	File_mpc_v1_mpc_proto = out.File
-	file_mpc_v1_mpc_proto_goTypes = nil
-	file_mpc_v1_mpc_proto_depIdxs = nil
+	File_proto_mpc_v1_mpc_proto = out.File
+	file_proto_mpc_v1_mpc_proto_goTypes = nil
+	file_proto_mpc_v1_mpc_proto_depIdxs = nil
 }

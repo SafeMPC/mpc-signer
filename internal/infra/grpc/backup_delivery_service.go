@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	pb "github.com/kashguard/go-mpc-infra/internal/pb/infra/v1"
+	pb "github.com/kashguard/go-mpc-infra/infra/v1"
 	"github.com/kashguard/go-mpc-infra/internal/util"
 	pkgbackup "github.com/kashguard/go-mpc-infra/pkg/backup"
 	"google.golang.org/grpc/codes"

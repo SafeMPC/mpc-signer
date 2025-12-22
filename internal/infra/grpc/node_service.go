@@ -3,7 +3,7 @@ package grpc
 import (
 	"context"
 
-	pb "github.com/kashguard/go-mpc-infra/internal/pb/infra/v1"
+	pb "github.com/kashguard/go-mpc-infra/infra/v1"
 	"github.com/kashguard/go-mpc-infra/internal/util"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

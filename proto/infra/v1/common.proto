@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package infra.v1;
 
-option go_package = "github.com/kashguard/go-mpc-infra/internal/pb/infra/v1";
+option go_package = "github.com/kashguard/go-mpc-infra/infra/v1";
 
 // 通用响应消息
 message StatusResponse {

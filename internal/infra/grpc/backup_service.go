@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/kashguard/go-mpc-infra/internal/infra/backup"
-	pb "github.com/kashguard/go-mpc-infra/internal/pb/infra/v1"
+	pb "github.com/kashguard/go-mpc-infra/infra/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

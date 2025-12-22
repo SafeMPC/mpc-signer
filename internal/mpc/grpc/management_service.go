@@ -9,7 +9,7 @@ import (
 
 	"github.com/kashguard/go-mpc-infra/internal/auth"
 	"github.com/kashguard/go-mpc-infra/internal/infra/storage"
-	pb "github.com/kashguard/go-mpc-infra/internal/pb/mpc/v1"
+	pb "github.com/kashguard/go-mpc-infra/mpc/v1"
 	"github.com/rs/zerolog/log"
 )
 

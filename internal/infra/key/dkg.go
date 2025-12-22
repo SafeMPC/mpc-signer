@@ -8,7 +8,7 @@ import (
 	"github.com/kashguard/go-mpc-infra/internal/infra/storage"
 	"github.com/kashguard/go-mpc-infra/internal/mpc/node"
 	"github.com/kashguard/go-mpc-infra/internal/mpc/protocol"
-	pb "github.com/kashguard/go-mpc-infra/internal/pb/mpc/v1"
+	pb "github.com/kashguard/go-mpc-infra/mpc/v1"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )

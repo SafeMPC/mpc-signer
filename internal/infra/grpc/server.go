@@ -16,7 +16,7 @@ import (
 	"github.com/kashguard/go-mpc-infra/internal/infra/key"
 	"github.com/kashguard/go-mpc-infra/internal/infra/signing"
 	"github.com/kashguard/go-mpc-infra/internal/mpc/node"
-	pb "github.com/kashguard/go-mpc-infra/internal/pb/infra/v1"
+	pb "github.com/kashguard/go-mpc-infra/infra/v1"
 	"github.com/kashguard/go-mpc-infra/internal/util"
 	"github.com/kashguard/go-mpc-infra/internal/util/cert"
 	"github.com/pkg/errors"

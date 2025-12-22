@@ -5,7 +5,7 @@ package mpc.v1;
 
 import "mpc/v1/common.proto";
 
-option go_package = "github.com/kashguard/go-mpc-infra/internal/pb/mpc/v1";
+option go_package = "github.com/kashguard/go-mpc-infra/mpc/v1";
 
 // 服务注册和发现服务
 service MPCRegistry {

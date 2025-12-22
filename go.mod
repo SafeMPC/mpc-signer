@@ -2,8 +2,6 @@ module github.com/kashguard/go-mpc-infra
 
 go 1.24.0
 
-replace github.com/kashguard/go-mpc-infra/internal/pb => ./internal/pb
-
 require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/aarondl/null/v8 v8.1.3
@@ -28,7 +26,6 @@ require (
 	github.com/google/wire v0.6.0
 	github.com/hashicorp/consul/api v1.28.2
 	github.com/jordan-wright/email v4.0.1-0.20210109023952-943e75fe5223+incompatible
-	github.com/kashguard/go-mpc-infra/internal/pb v0.0.0
 	github.com/kashguard/tss-lib v0.0.2 // 支持标准 Ed25519 (big-endian), commit: efe9049
 	github.com/kat-co/vala v0.0.0-20170210184112-42e1d8b61f12
 	github.com/labstack/echo/v4 v4.13.4

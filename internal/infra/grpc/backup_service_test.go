@@ -7,7 +7,7 @@ import (
 
 	"github.com/kashguard/go-mpc-infra/internal/infra/backup"
 	"github.com/kashguard/go-mpc-infra/internal/infra/storage"
-	pb "github.com/kashguard/go-mpc-infra/internal/pb/infra/v1"
+	pb "github.com/kashguard/go-mpc-infra/infra/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc/codes"
