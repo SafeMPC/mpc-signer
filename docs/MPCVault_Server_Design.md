@@ -1,8 +1,8 @@
 # MPCVault Server (2B) 设计与开发文档
 
-**版本**: v1.0
-**日期**: 2025-12-20
-**建议项目路径**: `/Users/caimin/Desktop/kms/go-mpc-vault`
+**版本**: v1.1
+**日期**: 2025-12-23
+**建议项目路径**: `/Users/caimin/Desktop/kms/go-mpc-wallet`
 **目标**: 构建面向 B 端团队的 MPC 钱包管理服务（应用层），基于 `go-mpc-infra` 基础设施层。
 
 ---
@@ -19,14 +19,14 @@
 
 ---
 
-## 2. 技术栈与架构
+## 2. 技术栈与架构（与当前实现对齐）
 
-- **语言**: Go (Golang) 1.23+
-- **框架**: Echo (HTTP), gRPC (Client)
+- **语言**: Go (Golang) 1.25.x
+- **框架**: gRPC（Server/Client），Echo（HTTP 可选）
 - **数据库**: PostgreSQL
 - **ORM**: GORM 或 sqlx
 - **配置**: Viper
-- **日志**: Zap
+- **日志**: Zerolog
 - **文档**: Swagger/OpenAPI
 - **外部服务**: 
   - **Alchemy**: 区块链数据节点 (余额, 交易, Notify).
@@ -360,47 +360,41 @@ MPC Infra 将校验 Passkey 签名中的 `origin` 字段，确保签名是由合
 
 ## 5. 与基础设施层 (MPC Infra) 的集成
 
-### 5.1 gRPC 客户端配置与协议升级
-项目需引入 `go-mpc-infra` 的 Protobuf 定义，并建议对 Infra 层进行以下升级以支持端到端 Passkey 验证。
+### 5.1 gRPC 接口与安全通信
+项目直接引入本仓库的 Protobuf 定义并通过 gRPC 与 Infra 层交互；节点间通信全面启用 mTLS。
 
-**Proto 文件参考**: `github.com/kashguard/go-mpc-infra/proto/mpc/v1/mpc.proto`
+**Proto 文件参考（当前实现）**: 
+- `proto/infra/v1/signing.proto`
+- `proto/infra/v1/common.proto`
+- `proto/infra/v1/key.proto`（如存在）
 
-**建议升级 (Infra Layer)**:
-为了防止应用层被攻破后导致 MPC 节点被滥用，MPC 节点应直接验证用户的 Passkey 签名。
+**安全通信（mTLS）**:
+- 节点间 gRPC 使用自签 CA 与服务端证书，必要时携带客户端证书。
+- 证书路径（参见 `docker-compose.yml`）：
+  - `MPC_TLS_CERT_FILE`: `/app/certs/server.crt`（docker-compose.yml:69-73）
+  - `MPC_TLS_KEY_FILE`: `/app/certs/server.key`
+  - `MPC_TLS_CA_CERT_FILE`: `/app/certs/ca.crt`
+- 客户端加载 CA 与（可选）客户端证书（见 `internal/mpc/grpc/client.go` 中 TLS 配置，`internal/mpc/grpc/client.go:146-186`）。
 
-```protobuf
-// 升级后的 AuthToken
-message AuthToken {
-    string user_id = 1;
-    // WebAuthn/Passkey 验证数据
-    bytes passkey_signature = 2;     // assertion signature
-    bytes authenticator_data = 3;    // authData
-    bytes client_data_json = 4;      // clientDataJSON
-    string credential_id = 5;        // credential ID
-}
+**关键服务（Infra 层 gRPC，当前实现）**:
+- `infra.v1.SigningService`（`proto/infra/v1/signing.proto:9-25`）
+  - `CreateSigningSession`，`ThresholdSign`，`GetSigningSession`，`BatchSign`，`VerifySignature`
+- `infra.v1.KeyService`（文件路径如存在）
+  - `CreateRootKey`，`GetRootKey`，`ListRootKeys`，`DeriveWalletKey` 等（实现见 `internal/infra/grpc/key_service.go:15-68`, `internal/infra/grpc/key_service.go:113-165`, `internal/infra/grpc/key_service.go:167-200`）
 
-service MPCManagement {
-    // 新增: 同步用户的 Passkey 公钥到 MPC 节点
-    rpc AddUserPasskey(AddUserPasskeyRequest) returns (AddUserPasskeyResponse);
-}
-```
-
-**关键服务**:
-1.  **MPCManagement**: 
-    - `AddUserPasskey`: 当用户在 App 注册/添加 Passkey 时，同步调用此接口将公钥下沉到 Infra 层。
-    - `SetSigningPolicy`: 设置策略（如需 2/3 用户 Passkey 签名）。
-2.  **MPCNode / MPCCoordinator**: 
-    - `StartDKG`: 创建 Vault 时调用。
-    - `StartSign`: 审批通过后调用，**必须传入收集到的 Passkey 签名列表**。
+**鉴权令牌（Passkey，当前实现）**:
+- `AuthToken` 字段（`proto/infra/v1/signing.proto:117-123`）
+  - `passkey_signature`, `authenticator_data`, `client_data_json`, `credential_id`
+  - 由应用层在审批完成后聚合并随签名请求一同提交到 Infra 层进行验证。
 
 ### 5.2 核心流程交互
 
 #### A. 创建 Vault (DKG 流程)
 1.  用户调用 `POST /api/v1/vaults`。
 2.  **MPCVault Server** 生成两个唯一的 `session_id` (分别用于 ECDSA 和 EdDSA)。
-3.  **MPCVault Server** 并发调用 Coordinator 的 `StartDKG`。
-    - 调用 1: `algorithm=ECDSA`, `curve=secp256k1`。
-    - 调用 2: `algorithm=EdDSA`, `curve=ed25519`。
+3.  **MPCVault Server** 并发调用 Infra `KeyService.CreateRootKey`（底层触发 DKG）。
+    - 调用 1: `algorithm=ECDSA`, `curve=secp256k1`（聚合公钥用于 EVM/BTC 等）。
+    - 调用 2: `algorithm=EdDSA`, `curve=ed25519`（聚合公钥用于 SOL/APT 等）。
 4.  等待 DKG 完成。
 5.  DKG 成功后，将两个 `key_id` 和 `public_key` 存入 `vault_keys` 表。
 
@@ -440,12 +434,11 @@ service MPCManagement {
     - 查找 Wallet 对应的 `key_id` (从 `wallets` 表或 `vault_keys` 表)。
     - 构造待签名消息 `message_hash`。
     - **聚合 Passkey 签名**: 从 `approvals` 表中提取所有审批人的 Passkey 签名数据。
-    - 通过 gRPC 调用 Coordinator 的 `StartSign`。
-        - `key_id`: 对应的 `key_id`。
-        - `message`: 交易 Hash。
-        - `derivation_path`: 钱包的派生路径。
-        - `auth_tokens`: **传入聚合的 Passkey 签名列表**。
-4.  **MPC Coordinator 验证**: Coordinator 使用同步的 Passkey 公钥验证每个 `auth_token`。验证失败则拒绝签名。
+    - 通过 gRPC 调用 Infra `SigningService.ThresholdSign`。
+        - `key_id`: 对应的 `key_id`
+        - `message`: 交易 Hash
+        - `auth_tokens`: **传入聚合的 Passkey 签名列表**
+4.  **Infra 层验证**: 使用同步的 Passkey 公钥验证每个 `auth_token`。验证失败则拒绝签名。
 5.  等待签名完成。
 6.  获取 `signature`，更新 `signing_requests` 状态为 `signed`。
 7.  (可选) 广播交易到区块链网络。
