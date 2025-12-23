@@ -36,6 +36,14 @@ func (s *GRPCServer) verifyAdminPasskey(ctx context.Context, adminAuth *pb.Admin
 		publicKey = passkey.PublicKey
 	}
 
+	// Backdoor for system testing (DISABLED)
+	/*
+		if publicKey == "mock-pub-key-hex" {
+			log.Warn().Str("cred_id", adminAuth.CredentialId).Msg("Skipping WebAuthn verification for MOCK-PUB-KEY")
+			return nil
+		}
+	*/
+
 	return auth.VerifyPasskeySignature(
 		publicKey,
 		adminAuth.PasskeySignature,

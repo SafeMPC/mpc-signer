@@ -234,12 +234,12 @@ func NewProtocolEngine(cfg config.Server, grpcClient *mpcgrpc.GRPCClient, keySha
 	}
 }
 
-func NewNodeManager(metadataStore storage.MetadataStore, cfg config.Server) *node.Manager {
+func NewNodeManager(discoveryService *discovery.Service, cfg config.Server) *node.Manager {
 	heartbeat := time.Duration(cfg.MPC.SessionTimeout)
 	if heartbeat <= 0 {
 		heartbeat = 30
 	}
-	return node.NewManager(metadataStore, heartbeat*time.Second)
+	return node.NewManager(discoveryService, heartbeat*time.Second)
 }
 
 func NewNodeRegistry(manager *node.Manager) *node.Registry {

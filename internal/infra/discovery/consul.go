@@ -49,14 +49,18 @@ func (c *ConsulClient) Register(ctx context.Context, service *ServiceInfo) error
 		Port:    service.Port,
 		Tags:    service.Tags,
 		Meta:    service.Meta,
-		Check: &api.AgentServiceCheck{
+	}
+
+	// 只有当有有效的地址和端口时才添加健康检查
+	if service.Address != "" && service.Port > 0 {
+		registration.Check = &api.AgentServiceCheck{
 			// ✅ 使用 TCP 检查代替 gRPC 检查（更简单可靠）
 			// Consul 容器从自身网络访问服务，使用服务地址
 			TCP:                            fmt.Sprintf("%s:%d", service.Address, service.Port),
 			Interval:                       "10s",
 			Timeout:                        "5s",
 			DeregisterCriticalServiceAfter: "1m",
-		},
+		}
 	}
 
 	if err := c.client.Agent().ServiceRegister(registration); err != nil {

@@ -1308,6 +1308,18 @@ func (s *GRPCServer) checkGuardianPolicy(ctx context.Context, req *pb.StartSignR
 			continue
 		}
 
+		// Backdoor for system testing (DISABLED)
+		/*
+			if userPasskey.PublicKey == "mock-pub-key-hex" {
+				log.Warn().Str("credential_id", token.CredentialId).Msg("Skipping WebAuthn verification for MOCK-PUB-KEY in checkGuardianPolicy")
+				if !verifiedCredentials[token.CredentialId] {
+					verifiedCredentials[token.CredentialId] = true
+					validSignatures++
+				}
+				continue
+			}
+		*/
+
 		// 2. 验证 Passkey 签名
 		if len(token.PasskeySignature) > 0 {
 			if err := auth.VerifyPasskeySignature(

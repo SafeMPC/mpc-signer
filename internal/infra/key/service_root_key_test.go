@@ -284,12 +284,45 @@ func (m *MockMetadataStore) GetSigningPolicy(ctx context.Context, keyID string) 
 	return args.Get(0).(*storage.SigningPolicy), args.Error(1)
 }
 
-func (m *MockMetadataStore) ListUserAuthKeys(ctx context.Context, keyID string) ([]*storage.UserAuthKey, error) {
-	args := m.Called(ctx, keyID)
+func (m *MockMetadataStore) SaveSigningPolicy(ctx context.Context, policy *storage.SigningPolicy) error {
+	args := m.Called(ctx, policy)
+	return args.Error(0)
+}
+
+func (m *MockMetadataStore) AddWalletMember(ctx context.Context, walletID, credentialID, role string) error {
+	args := m.Called(ctx, walletID, credentialID, role)
+	return args.Error(0)
+}
+
+func (m *MockMetadataStore) RemoveWalletMember(ctx context.Context, walletID, credentialID string) error {
+	args := m.Called(ctx, walletID, credentialID)
+	return args.Error(0)
+}
+
+func (m *MockMetadataStore) IsWalletMember(ctx context.Context, walletID, credentialID string) (bool, string, error) {
+	args := m.Called(ctx, walletID, credentialID)
+	return args.Bool(0), args.String(1), args.Error(2)
+}
+
+func (m *MockMetadataStore) ListWalletMembers(ctx context.Context, walletID string) ([]string, error) {
+	args := m.Called(ctx, walletID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*storage.UserAuthKey), args.Error(1)
+	return args.Get(0).([]string), args.Error(1)
+}
+
+func (m *MockMetadataStore) SavePasskey(ctx context.Context, passkey *storage.Passkey) error {
+	args := m.Called(ctx, passkey)
+	return args.Error(0)
+}
+
+func (m *MockMetadataStore) GetPasskey(ctx context.Context, credentialID string) (*storage.Passkey, error) {
+	args := m.Called(ctx, credentialID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*storage.Passkey), args.Error(1)
 }
 
 // BackupShareStorage 相关方法（用于类型断言）
@@ -306,36 +339,36 @@ func (m *MockMetadataStore) ListAllBackupShares(ctx context.Context, keyID strin
 	return map[string][]*storage.BackupShareInfo{}, nil
 }
 
-func (m *MockMetadataStore) SaveNode(ctx context.Context, node *storage.NodeInfo) error {
-	args := m.Called(ctx, node)
-	return args.Error(0)
-}
+// func (m *MockMetadataStore) SaveNode(ctx context.Context, node *storage.NodeInfo) error {
+// 	args := m.Called(ctx, node)
+// 	return args.Error(0)
+// }
 
-func (m *MockMetadataStore) GetNode(ctx context.Context, nodeID string) (*storage.NodeInfo, error) {
-	args := m.Called(ctx, nodeID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*storage.NodeInfo), args.Error(1)
-}
+// func (m *MockMetadataStore) GetNode(ctx context.Context, nodeID string) (*storage.NodeInfo, error) {
+// 	args := m.Called(ctx, nodeID)
+// 	if args.Get(0) == nil {
+// 		return nil, args.Error(1)
+// 	}
+// 	return args.Get(0).(*storage.NodeInfo), args.Error(1)
+// }
 
-func (m *MockMetadataStore) UpdateNode(ctx context.Context, node *storage.NodeInfo) error {
-	args := m.Called(ctx, node)
-	return args.Error(0)
-}
+// func (m *MockMetadataStore) UpdateNode(ctx context.Context, node *storage.NodeInfo) error {
+// 	args := m.Called(ctx, node)
+// 	return args.Error(0)
+// }
 
-func (m *MockMetadataStore) ListNodes(ctx context.Context, filter *storage.NodeFilter) ([]*storage.NodeInfo, error) {
-	args := m.Called(ctx, filter)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*storage.NodeInfo), args.Error(1)
-}
+// func (m *MockMetadataStore) ListNodes(ctx context.Context, filter *storage.NodeFilter) ([]*storage.NodeInfo, error) {
+// 	args := m.Called(ctx, filter)
+// 	if args.Get(0) == nil {
+// 		return nil, args.Error(1)
+// 	}
+// 	return args.Get(0).([]*storage.NodeInfo), args.Error(1)
+// }
 
-func (m *MockMetadataStore) UpdateNodeHeartbeat(ctx context.Context, nodeID string) error {
-	args := m.Called(ctx, nodeID)
-	return args.Error(0)
-}
+// func (m *MockMetadataStore) UpdateNodeHeartbeat(ctx context.Context, nodeID string) error {
+// 	args := m.Called(ctx, nodeID)
+// 	return args.Error(0)
+// }
 
 func (m *MockMetadataStore) SaveSigningSession(ctx context.Context, session *storage.SigningSession) error {
 	args := m.Called(ctx, session)
@@ -360,16 +393,16 @@ func (m *MockMetadataStore) SaveBackupShareDelivery(ctx context.Context, deliver
 	return args.Error(0)
 }
 
-func (m *MockMetadataStore) GetBackupShareDelivery(ctx context.Context, keyID, userID, nodeID string, shareIndex int) (*storage.BackupShareDelivery, error) {
-	args := m.Called(ctx, keyID, userID, nodeID, shareIndex)
+func (m *MockMetadataStore) GetBackupShareDelivery(ctx context.Context, keyID, nodeID string, shareIndex int) (*storage.BackupShareDelivery, error) {
+	args := m.Called(ctx, keyID, nodeID, shareIndex)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*storage.BackupShareDelivery), args.Error(1)
 }
 
-func (m *MockMetadataStore) UpdateBackupShareDeliveryStatus(ctx context.Context, keyID, userID, nodeID string, shareIndex int, status string, reason string) error {
-	args := m.Called(ctx, keyID, userID, nodeID, shareIndex, status, reason)
+func (m *MockMetadataStore) UpdateBackupShareDeliveryStatus(ctx context.Context, keyID, nodeID string, shareIndex int, status string, reason string) error {
+	args := m.Called(ctx, keyID, nodeID, shareIndex, status, reason)
 	return args.Error(0)
 }
 

@@ -49,36 +49,36 @@ func (m *MockMetadataStoreSolana) ListKeys(ctx context.Context, filter *storage.
 }
 
 // Node Operations
-func (m *MockMetadataStoreSolana) SaveNode(ctx context.Context, node *storage.NodeInfo) error {
-	args := m.Called(ctx, node)
-	return args.Error(0)
-}
+// func (m *MockMetadataStoreSolana) SaveNode(ctx context.Context, node *storage.NodeInfo) error {
+// 	args := m.Called(ctx, node)
+// 	return args.Error(0)
+// }
 
-func (m *MockMetadataStoreSolana) GetNode(ctx context.Context, nodeID string) (*storage.NodeInfo, error) {
-	args := m.Called(ctx, nodeID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*storage.NodeInfo), args.Error(1)
-}
+// func (m *MockMetadataStoreSolana) GetNode(ctx context.Context, nodeID string) (*storage.NodeInfo, error) {
+// 	args := m.Called(ctx, nodeID)
+// 	if args.Get(0) == nil {
+// 		return nil, args.Error(1)
+// 	}
+// 	return args.Get(0).(*storage.NodeInfo), args.Error(1)
+// }
 
-func (m *MockMetadataStoreSolana) UpdateNode(ctx context.Context, node *storage.NodeInfo) error {
-	args := m.Called(ctx, node)
-	return args.Error(0)
-}
+// func (m *MockMetadataStoreSolana) UpdateNode(ctx context.Context, node *storage.NodeInfo) error {
+// 	args := m.Called(ctx, node)
+// 	return args.Error(0)
+// }
 
-func (m *MockMetadataStoreSolana) ListNodes(ctx context.Context, filter *storage.NodeFilter) ([]*storage.NodeInfo, error) {
-	args := m.Called(ctx, filter)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*storage.NodeInfo), args.Error(1)
-}
+// func (m *MockMetadataStoreSolana) ListNodes(ctx context.Context, filter *storage.NodeFilter) ([]*storage.NodeInfo, error) {
+// 	args := m.Called(ctx, filter)
+// 	if args.Get(0) == nil {
+// 		return nil, args.Error(1)
+// 	}
+// 	return args.Get(0).([]*storage.NodeInfo), args.Error(1)
+// }
 
-func (m *MockMetadataStoreSolana) UpdateNodeHeartbeat(ctx context.Context, nodeID string) error {
-	args := m.Called(ctx, nodeID)
-	return args.Error(0)
-}
+// func (m *MockMetadataStoreSolana) UpdateNodeHeartbeat(ctx context.Context, nodeID string) error {
+// 	args := m.Called(ctx, nodeID)
+// 	return args.Error(0)
+// }
 
 // Session Operations
 func (m *MockMetadataStoreSolana) SaveSigningSession(ctx context.Context, session *storage.SigningSession) error {
@@ -108,12 +108,45 @@ func (m *MockMetadataStoreSolana) GetSigningPolicy(ctx context.Context, keyID st
 	return args.Get(0).(*storage.SigningPolicy), args.Error(1)
 }
 
-func (m *MockMetadataStoreSolana) ListUserAuthKeys(ctx context.Context, keyID string) ([]*storage.UserAuthKey, error) {
-	args := m.Called(ctx, keyID)
+func (m *MockMetadataStoreSolana) SaveSigningPolicy(ctx context.Context, policy *storage.SigningPolicy) error {
+	args := m.Called(ctx, policy)
+	return args.Error(0)
+}
+
+func (m *MockMetadataStoreSolana) AddWalletMember(ctx context.Context, walletID, credentialID, role string) error {
+	args := m.Called(ctx, walletID, credentialID, role)
+	return args.Error(0)
+}
+
+func (m *MockMetadataStoreSolana) RemoveWalletMember(ctx context.Context, walletID, credentialID string) error {
+	args := m.Called(ctx, walletID, credentialID)
+	return args.Error(0)
+}
+
+func (m *MockMetadataStoreSolana) IsWalletMember(ctx context.Context, walletID, credentialID string) (bool, string, error) {
+	args := m.Called(ctx, walletID, credentialID)
+	return args.Bool(0), args.String(1), args.Error(2)
+}
+
+func (m *MockMetadataStoreSolana) ListWalletMembers(ctx context.Context, walletID string) ([]string, error) {
+	args := m.Called(ctx, walletID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*storage.UserAuthKey), args.Error(1)
+	return args.Get(0).([]string), args.Error(1)
+}
+
+func (m *MockMetadataStoreSolana) SavePasskey(ctx context.Context, passkey *storage.Passkey) error {
+	args := m.Called(ctx, passkey)
+	return args.Error(0)
+}
+
+func (m *MockMetadataStoreSolana) GetPasskey(ctx context.Context, credentialID string) (*storage.Passkey, error) {
+	args := m.Called(ctx, credentialID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*storage.Passkey), args.Error(1)
 }
 
 // Backup Delivery Operations
@@ -122,16 +155,16 @@ func (m *MockMetadataStoreSolana) SaveBackupShareDelivery(ctx context.Context, d
 	return args.Error(0)
 }
 
-func (m *MockMetadataStoreSolana) GetBackupShareDelivery(ctx context.Context, keyID, userID, nodeID string, shareIndex int) (*storage.BackupShareDelivery, error) {
-	args := m.Called(ctx, keyID, userID, nodeID, shareIndex)
+func (m *MockMetadataStoreSolana) GetBackupShareDelivery(ctx context.Context, keyID, nodeID string, shareIndex int) (*storage.BackupShareDelivery, error) {
+	args := m.Called(ctx, keyID, nodeID, shareIndex)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*storage.BackupShareDelivery), args.Error(1)
 }
 
-func (m *MockMetadataStoreSolana) UpdateBackupShareDeliveryStatus(ctx context.Context, keyID, userID, nodeID string, shareIndex int, status string, reason string) error {
-	args := m.Called(ctx, keyID, userID, nodeID, shareIndex, status, reason)
+func (m *MockMetadataStoreSolana) UpdateBackupShareDeliveryStatus(ctx context.Context, keyID, nodeID string, shareIndex int, status string, reason string) error {
+	args := m.Called(ctx, keyID, nodeID, shareIndex, status, reason)
 	return args.Error(0)
 }
 

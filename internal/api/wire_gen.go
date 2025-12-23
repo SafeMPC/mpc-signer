@@ -53,16 +53,16 @@ func InitNewServer(server config.Server) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	manager := NewNodeManager(metadataStore, server)
+	discoveryService, err := NewMPCDiscoveryService(server)
+	if err != nil {
+		return nil, err
+	}
+	manager := NewNodeManager(discoveryService, server)
 	grpcClient, err := NewMPCGRPCClient(server, manager)
 	if err != nil {
 		return nil, err
 	}
 	engine := NewProtocolEngine(server, grpcClient, keyShareStorage)
-	discoveryService, err := NewMPCDiscoveryService(server)
-	if err != nil {
-		return nil, err
-	}
 	discovery := NewNodeDiscovery(manager, discoveryService)
 	dkgService := NewDKGServiceProvider(metadataStore, keyShareStorage, engine, manager, discovery, grpcClient, server)
 	sssBackupService := NewBackupService(metadataStore)
@@ -114,16 +114,16 @@ func InitNewServerWithDB(server config.Server, db *sql.DB, t ...*testing.T) (*Se
 	if err != nil {
 		return nil, err
 	}
-	manager := NewNodeManager(metadataStore, server)
+	discoveryService, err := NewMPCDiscoveryService(server)
+	if err != nil {
+		return nil, err
+	}
+	manager := NewNodeManager(discoveryService, server)
 	grpcClient, err := NewMPCGRPCClient(server, manager)
 	if err != nil {
 		return nil, err
 	}
 	engine := NewProtocolEngine(server, grpcClient, keyShareStorage)
-	discoveryService, err := NewMPCDiscoveryService(server)
-	if err != nil {
-		return nil, err
-	}
 	discovery := NewNodeDiscovery(manager, discoveryService)
 	dkgService := NewDKGServiceProvider(metadataStore, keyShareStorage, engine, manager, discovery, grpcClient, server)
 	sssBackupService := NewBackupService(metadataStore)

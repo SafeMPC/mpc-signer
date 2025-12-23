@@ -82,11 +82,11 @@ type MetadataStore interface {
 	ListKeys(ctx context.Context, filter *KeyFilter) ([]*KeyMetadata, error)
 
 	// 节点操作
-	SaveNode(ctx context.Context, node *NodeInfo) error
-	GetNode(ctx context.Context, nodeID string) (*NodeInfo, error)
-	UpdateNode(ctx context.Context, node *NodeInfo) error
-	ListNodes(ctx context.Context, filter *NodeFilter) ([]*NodeInfo, error)
-	UpdateNodeHeartbeat(ctx context.Context, nodeID string) error
+	// SaveNode(ctx context.Context, node *NodeInfo) error
+	// GetNode(ctx context.Context, nodeID string) (*NodeInfo, error)
+	// UpdateNode(ctx context.Context, node *NodeInfo) error
+	// ListNodes(ctx context.Context, filter *NodeFilter) ([]*NodeInfo, error)
+	// UpdateNodeHeartbeat(ctx context.Context, nodeID string) error
 
 	// 会话操作
 	SaveSigningSession(ctx context.Context, session *SigningSession) error
