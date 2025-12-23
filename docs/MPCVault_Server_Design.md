@@ -485,3 +485,94 @@ MPC Infra 将校验 Passkey 签名中的 `origin` 字段，确保签名是由合
 - **安全性**: 所有私钥操作仅在 MPC Infra 层进行，MPCVault Server **不接触** 私钥分片。
 - **幂等性**: DKG 和 Sign 操作应当设计为幂等，防止网络重试导致重复执行。
 - **异步处理**: 签名过程可能较慢，建议使用 任务队列 + 轮询/WebSocket 通知前端结果。
+
+---
+
+## 8. 业务层细化（审批、风控、Passkey 交互）
+
+### 8.1 审批流程详解（状态机与触发）
+- 状态机：`pending → approved → signing → signed | rejected | failed`
+- 触发条件：当 `approvals` 数量满足阈值（如 2/3）且风控检查通过，进入 `signing`。
+- 服务端流程：
+  - 创建 `signing_requests`，持久化 `tx_data` 与 `message_hash`。
+  - 审批动作需二次验证（Passkey），将验签后的审批记录写入 `approvals`。
+  - 聚合审批人的 Passkey 验证数据为 `AuthToken[]`（见 `proto/infra/v1/signing.proto:117-123`）。
+  - 调用 Infra `SigningService.ThresholdSign` 完成阈值签名（见 `proto/infra/v1/signing.proto:38-58`，实现映射见 `internal/infra/grpc/signing_service.go:70-81` 与 调用见 `internal/infra/grpc/signing_service.go:83-103`）。
+
+### 8.2 风控策略执行（白名单与限额）
+- 白名单：对 `to_address` 基于组织与链维度进行匹配，非白名单可直接拒绝或升级审批。
+- 限额：按资产维度或按 USD 总额进行滑动窗口统计与限制（参考 `spending_limits` 表）。
+- 执行策略：
+  - `REJECT`：直接拒绝签名请求。
+  - `REQUIRE_ADMIN`：升级为管理员审批，提升阈值或增加必选审批人。
+- 签名前检查顺序：
+  - 地址白名单 → 限额策略 → 交易合规性（黑名单、已知风险地址）→ 通过后进入 `signing`。
+
+### 8.3 Passkey 前后端交互样例（WebAuthn）
+
+#### A. 前端发起关键操作时的二次验证（Re-auth）
+```javascript
+const challenge = await fetch("/api/v1/auth/login/challenge").then(r => r.json());
+const assertion = await navigator.credentials.get({
+  publicKey: {
+    challenge: Uint8Array.from(atob(challenge.base64), c => c.charCodeAt(0)),
+    allowCredentials: challenge.allowCredentials,
+    timeout: 60000,
+    userVerification: "required"
+  }
+});
+```
+
+将以下头加入后端关键接口请求（如创建金库、审批、发起签名）：
+```http
+X-Passkey-Signature: <Base64URL(assertion.response.signature)>
+X-Passkey-Credential-ID: <Base64URL(assertion.id)>
+X-Passkey-Authenticator-Data: <Base64URL(assertion.response.authenticatorData)>
+X-Passkey-Client-Data-JSON: <Base64URL(assertion.response.clientDataJSON)>
+```
+
+#### B. 后端校验示例（REST 层）
+```bash
+curl -X POST https://vault.example.com/api/v1/requests/{id}/approve \
+  -H "Authorization: Bearer <jwt>" \
+  -H "X-Passkey-Signature: <...>" \
+  -H "X-Passkey-Credential-ID: <...>" \
+  -H "X-Passkey-Authenticator-Data: <...>" \
+  -H "X-Passkey-Client-Data-JSON: <...>" \
+  -d '{"comment":"approve"}'
+```
+
+后端校验步骤：
+- 解析 `clientDataJSON` 并校验 `challenge` 与 `origin`。
+- 使用存储的 Passkey 公钥验证 `signature` 与 `authenticatorData`。
+- 校验通过后写入 `approvals` 并更新 `sign_count`。
+
+#### C. 聚合审批并触发阈值签名（与 Infra 对接）
+应用层在满足阈值后构造 `AuthToken[]` 并调用 Infra：
+```json
+{
+  "key_id": "key-abc123",
+  "message_hex": "0x...",
+  "chain_type": "EVM",
+  "auth_tokens": [
+    {
+      "passkey_signature": "<Base64URL>",
+      "authenticator_data": "<Base64URL>",
+      "client_data_json": "<Base64URL>",
+      "credential_id": "<Base64URL>"
+    },
+    {
+      "passkey_signature": "<Base64URL>",
+      "authenticator_data": "<Base64URL>",
+      "client_data_json": "<Base64URL>",
+      "credential_id": "<Base64URL>"
+    }
+  ]
+}
+```
+服务端会将该结构映射到内部类型并转发到 Infra（参见 `internal/infra/grpc/signing_service.go:70-81`）。
+
+#### D. mTLS 配置与校验要点
+- 所有节点间 gRPC 启用 TLS，证书在 `docker-compose.yml` 中配置（`MPC_TLS_*`，见 `docker-compose.yml:69-73`）。
+- 客户端加载 CA 与可选客户端证书（见 `internal/mpc/grpc/client.go:146-186`）。
+- 若缺少客户端证书，确保服务端仅要求单向 TLS；若启用 mTLS，必须提供客户端证书与私钥。
