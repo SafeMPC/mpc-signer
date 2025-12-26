@@ -847,7 +847,7 @@ flowchart TD
 
     subgraph SysRecovery [系统恢复]
         OperatorLost[启用灾备预案] --> Retrieve3_Sys[取出 Share 3]
-        Retrieve3_Sys --> Combine[Node B (Share 2) + Share 3]
+        Retrieve3_Sys --> Combine[Node B (Share 2) and Share 3]
         Combine --> Reshare_Sys[执行 MPC Reshare]
         Reshare_Sys --> Restore[恢复服务]
         Restore --> Finish2((恢复完成))
