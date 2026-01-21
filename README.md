@@ -1,32 +1,34 @@
 # MPC Signer Node
 
-> MPC 签名节点 - 执行 MPC 协议计算的节点（纯 gRPC 服务）
+> MPC Signing Node - Node executing MPC protocol computations (Pure gRPC Service)
+
+> **[中文版](READMECN.md) | English**
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/go-1.21+-blue.svg)](go.mod)
 
-**mpc-signer** 是 MPC 钱包系统中的签名节点，负责执行 MPC 协议计算（DKG 和阈值签名）。
+**mpc-signer** is the signing node in the MPC wallet system, responsible for executing MPC protocol computations (DKG and threshold signing).
 
 ---
 
-## 🎯 节点职责
+## 🎯 Node Responsibilities
 
-### 核心功能
-- ✅ **执行 MPC 协议**: 参与 DKG（分布式密钥生成）和阈值签名协议
-- ✅ **存储密钥分片**: 安全存储 P2 密钥分片（加密存储在 Nitro Enclave）
-- ✅ **gRPC 服务**: 接收来自 mpc-service 的请求
-- ✅ **协议支持**: 支持 GG20 (ECDSA) 和 FROST (EdDSA) 协议
+### Core Functions
+- ✅ **Execute MPC Protocols**: Participate in DKG (Distributed Key Generation) and threshold signature protocols
+- ✅ **Store Key Shards**: Securely store P2 key shards (encrypted storage in Nitro Enclave)
+- ✅ **gRPC Service**: Receive requests from mpc-service
+- ✅ **Protocol Support**: Support GG20 (ECDSA) and FROST (EdDSA) protocols
 
-### 不提供的功能
-- ❌ **REST API**: 不提供 HTTP API
-- ❌ **用户认证**: 不处理用户认证（由 Service 负责）
-- ❌ **直接客户端访问**: 不接受来自 Client 的直接请求
+### What It Doesn't Do
+- ❌ **REST API**: No HTTP API provided
+- ❌ **User Authentication**: User authentication is handled by Service
+- ❌ **Direct Client Access**: Does not accept direct requests from clients
 
 ---
 
-## 🏗️ 架构说明
+## 🏗️ Architecture
 
-### 通信模式
+### Communication Pattern
 
 ```
 Client (P1)
@@ -41,90 +43,90 @@ Service (mpc-service)
     ▼
 Signer (mpc-signer)
     │
-    │ 内网 TEE
+    │ Private Network TEE
     │ AWS Nitro Enclave
 ```
 
-### 2-of-2 模式
-- **手机端 P1**: 作为 Signer 节点（通过 Service 中继）
-- **服务器端 P2**: 本服务
+### 2-of-2 Mode
+- **Client-side P1**: Acts as Signer node (relayed through Service)
+- **Server-side P2**: This service
 
-mpc-signer 只负责执行 MPC 协议计算，不负责会话管理、API 服务等协调工作（这些由 mpc-service 节点负责）。
+mpc-signer focuses solely on executing MPC protocol computations. Session management, API services, and other coordination tasks are handled by mpc-service nodes.
 
 ---
 
-## 🔌 gRPC 接口
+## 🔌 gRPC Interface
 
 ### SignerService
 
 ```protobuf
 service SignerService {
-  // DKG 相关
+  // DKG related
   rpc StartDKG(StartDKGRequest) returns (StartDKGResponse);
   rpc GetDKGStatus(GetDKGStatusRequest) returns (DKGStatusResponse);
   
-  // 签名相关
+  // Signing related
   rpc StartSign(StartSignRequest) returns (StartSignResponse);
   rpc GetSignStatus(GetSignStatusRequest) returns (SignStatusResponse);
   
-  // 协议消息处理
+  // Protocol message handling
   rpc SubmitProtocolMessage(ProtocolMessageRequest) returns (ProtocolMessageResponse);
   
-  // 健康检查
+  // Health check
   rpc Ping(PingRequest) returns (PongResponse);
 }
 ```
 
-**完整定义**: 参见 `proto/mpc/v1/signer.proto`
+**Full Definition**: See `proto/mpc/v1/signer.proto`
 
 ---
 
-## 🔒 安全机制
+## 🔒 Security Mechanisms
 
-### 1. 网络隔离
-- 部署在 **AWS VPC Private Subnet**
-- 不暴露公网端口
-- 只接受来自 Service 的内网连接
+### 1. Network Isolation
+- Deployed in **AWS VPC Private Subnet**
+- No public ports exposed
+- Only accepts connections from Service via private network
 
-### 2. mTLS 认证
+### 2. mTLS Authentication
 ```yaml
 grpc:
   tls_enabled: true
   cert_file: "/app/certs/signer.crt"
   key_file: "/app/certs/signer.key"
   ca_cert: "/app/certs/ca.crt"
-  client_auth: "require"  # 要求客户端证书
+  client_auth: "require"  # Client certificate required
 ```
 
-### 3. Service Token 验证
-- 验证来自 Service 的 JWT token
-- 检查 token 的 audience、issuer、有效期
-- 拒绝未授权的请求
+### 3. Service Token Validation
+- Validates JWT tokens from Service
+- Checks token audience, issuer, and expiration
+- Rejects unauthorized requests
 
-### 4. 消息签名验证
-- 验证协议消息的 HMAC 签名
-- 防止消息被篡改
-- 确保消息来自可信的 Service
+### 4. Message Signature Verification
+- Validates HMAC signatures on protocol messages
+- Prevents message tampering
+- Ensures messages originate from trusted Service
 
 ---
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 环境要求
+### Requirements
 - Go 1.21+
 - Docker & Docker Compose
-- 连接到 mpc-service 的网络
+- Network connectivity to mpc-service
 
-### 启动服务
+### Launch Service
 
 ```bash
 cd mpc-signer
 docker compose up -d server-signer-p2
 ```
 
-### 配置
+### Configuration
 
-Signer 通过环境变量连接到 Service 的基础设施：
+Signer connects to Service infrastructure via environment variables:
 
 ```yaml
 MPC_NODE_TYPE: "signer"
@@ -135,81 +137,81 @@ PGHOST: "host.docker.internal"
 MPC_REDIS_ENDPOINT: "host.docker.internal:6379"
 ```
 
-### 健康检查
+### Health Check
 
 ```bash
-# 通过 gRPC 健康检查
+# gRPC health check
 grpcurl -plaintext localhost:9091 mpc.v1.SignerService/Ping
 ```
 
 ---
 
-## 📁 目录结构
+## 📁 Directory Structure
 
 ```
 mpc-signer/
 ├── internal/
-│   ├── config/              # 配置管理
+│   ├── config/              # Configuration management
 │   ├── infra/
-│   │   ├── signing/        # 签名服务
-│   │   ├── dkg/            # DKG 服务
-│   │   ├── session/        # 会话管理
-│   │   └── storage/        # 密钥分片存储
+│   │   ├── signing/        # Signing service
+│   │   ├── dkg/            # DKG service
+│   │   ├── session/        # Session management
+│   │   └── storage/        # Key shard storage
 │   └── mpc/
-│       ├── protocol/        # 协议引擎（GG20/FROST）
-│       ├── grpc/            # gRPC Server（核心）
-│       ├── node/            # 节点管理
-│       └── chain/           # 链适配器
-├── proto/mpc/v1/           # gRPC 定义
-├── pb/mpc/v1/              # 生成的 pb 文件
-├── main.go                 # 启动入口
-└── docker-compose.yml      # Docker 配置
+│       ├── protocol/        # Protocol engine (GG20/FROST)
+│       ├── grpc/            # gRPC Server (core)
+│       ├── node/            # Node management
+│       └── chain/           # Chain adapters
+├── proto/mpc/v1/           # gRPC definitions
+├── pb/mpc/v1/              # Generated pb files
+├── main.go                 # Entry point
+└── docker-compose.yml      # Docker configuration
 ```
 
-**注意**: 没有 `api/` 目录和 `handlers/` 目录！
+**Note**: No `api/` or `handlers/` directories!
 
 ---
 
-## 🔧 开发
+## 🔧 Development
 
-### 编译
+### Build
 ```bash
 make build
 ```
 
-### 测试
+### Test
 ```bash
 make test
 ```
 
-### 进入容器
+### Access Container
 ```bash
 docker compose exec server-signer-p2 bash
 ```
 
 ---
 
-## 📖 相关文档
+## 📖 Related Documentation
 
-- [V2 架构设计](../design/docs/ARCHITECTURE_V2.md)
-- [接口设计](../design/docs/INTERFACE_DESIGN.md)
-- [开发规范](../.cursorrules)
-- [Service 节点](../mpc-service/README.md)
+- [V2 Architecture Design](../design/docs/ARCHITECTURE_V2.md)
+- [Interface Design](../design/docs/INTERFACE_DESIGN.md)
+- [Development Standards](../.cursorrules)
+- [Service Node](../mpc-service/README.md)
 
 ---
 
-## ⚠️ 重要说明
+## ⚠️ Important Notes
 
-### Signer 是纯后端服务
-- 没有用户界面
-- 没有 REST API
-- 只通过 gRPC 与 Service 通信
+### Signer is a Pure Backend Service
+- No user interface
+- No REST API
+- Communicates with Service via gRPC only
 
-### 部署建议
+### Deployment Recommendations
 - AWS Nitro Enclave
 - VPC Private Subnet
-- 通过 VPN 或 AWS PrivateLink 连接到 Service
+- Connect to Service via VPN or AWS PrivateLink
 
 ---
 
-**Signer = gRPC Server + MPC 计算引擎** 🔐
+**Signer = gRPC Server + MPC Computation Engine** 🔐
