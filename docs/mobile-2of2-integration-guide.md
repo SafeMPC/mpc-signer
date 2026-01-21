@@ -414,88 +414,185 @@ MPCWalletSDK-iOS/
 └── MPCWalletSDK.podspec
 ```
 
-#### 4.2.2 核心实现
+#### 4.2.2 核心实现（基于 tss-lib/mobile）
 
 **MPCClient.swift**:
 ```swift
 import Foundation
 import Security
 import LocalAuthentication
+import TssLib  // tss-lib 移动端框架
 
 public class MPCClient {
     private let nodeID: String
     private let serverEndpoint: String
     private let grpcClient: GRPCClient
     private let keyShareManager: KeyShareManager
-    private let protocolEngine: ProtocolEngine
+    private let partyManager: PartyManager
     
     public init(nodeID: String, serverEndpoint: String) {
         self.nodeID = nodeID
         self.serverEndpoint = serverEndpoint
         self.grpcClient = GRPCClient(endpoint: serverEndpoint)
         self.keyShareManager = KeyShareManager()
-        self.protocolEngine = ProtocolEngine(nodeID: nodeID)
+        self.partyManager = PartyManager()
+        
+        // 设置消息处理器
+        let msgHandler = MessageHandlerImpl(grpcClient: grpcClient)
+        partyManager.setMessageHandler(msgHandler)
+        
+        // 设置完成处理器
+        let completeHandler = CompletionHandlerImpl(keyShareManager: keyShareManager)
+        partyManager.setCompletionHandler(completeHandler)
+        
+        // 创建并设置当前 PartyID
+        let keyHex = generateUniqueKeyHex() // 生成唯一密钥（32字节hex）
+        try? partyManager.createPartyID(nodeID, moniker: "Mobile Node", keyHex: keyHex)
+        try? partyManager.setCurrentPartyID(nodeID)
     }
     
     // 参与 DKG
     public func participateDKG(
         keyID: String,
-        algorithm: String,
         curve: String,
         threshold: Int,
         totalNodes: Int,
         otherNodes: [String]
-    ) async throws -> KeyShare {
-        // 1. 启动 DKG 协议
-        let keyShare = try await protocolEngine.startDKG(
-            keyID: keyID,
-            algorithm: algorithm,
-            curve: curve,
+    ) async throws {
+        // 1. 准备参与方 ID 列表
+        let partyIDs = [nodeID] + otherNodes
+        let partyIDsJSON = try JSONSerialization.data(withJSONObject: partyIDs)
+        let partyIDsJSONString = String(data: partyIDsJSON, encoding: .utf8)!
+        
+        // 2. 可选：生成预参数（需要几分钟，建议提前生成）
+        let preParamsJSON = try? GeneratePreParams(60)
+        
+        // 3. 启动 DKG 协议
+        try partyManager.startKeygen(
+            curveName: curve,  // "secp256k1" 或 "ed25519"
+            partyIDsJSON: partyIDsJSONString,
             threshold: threshold,
-            totalNodes: totalNodes,
-            nodeIDs: [nodeID] + otherNodes,
-            messageRouter: { [weak self] msg, targetNodeID, isBroadcast in
-                try await self?.grpcClient.sendKeygenMessage(
-                    sessionID: keyID,
-                    targetNodeID: targetNodeID,
-                    message: msg,
-                    isBroadcast: isBroadcast
-                )
-            }
+            preParamsJSON: preParamsJSON ?? ""
         )
         
-        // 2. 存储密钥分片到 Secure Enclave
-        try await keyShareManager.saveKeyShare(keyID: keyID, keyShare: keyShare)
-        
-        return keyShare
+        // 4. 等待完成（通过 CompletionHandler 回调）
+        // 密钥数据会在 onKeygenComplete 回调中返回
     }
     
     // 参与签名
     public func participateSigning(
         keyID: String,
         message: Data,
-        sessionID: String
-    ) async throws -> String {
-        // 1. 从 Secure Enclave 加载密钥分片
-        let keyShare = try await keyShareManager.loadKeyShare(keyID: keyID)
+        sessionID: String,
+        otherNodes: [String]
+    ) async throws {
+        // 1. 从 Secure Enclave 加载密钥数据
+        let keyDataJSON = try keyShareManager.loadKeyDataJSON(keyID: keyID)
         
-        // 2. 执行签名协议
-        let signature = try await protocolEngine.thresholdSign(
-            keyID: keyID,
-            keyShare: keyShare,
-            message: message,
-            sessionID: sessionID,
-            messageRouter: { [weak self] msg, targetNodeID, isBroadcast in
-                try await self?.grpcClient.sendSigningMessage(
-                    sessionID: sessionID,
-                    targetNodeID: targetNodeID,
-                    message: msg,
-                    isBroadcast: isBroadcast
-                )
-            }
+        // 2. 准备参与方 ID 列表
+        let partyIDs = [nodeID] + otherNodes
+        let partyIDsJSON = try JSONSerialization.data(withJSONObject: partyIDs)
+        let partyIDsJSONString = String(data: partyIDsJSON, encoding: .utf8)!
+        
+        // 3. 将消息转换为 hex
+        let messageHex = message.map { String(format: "%02x", $0) }.joined()
+        
+        // 4. 启动签名协议
+        try partyManager.startSigning(
+            messageHex: messageHex,
+            curveName: "secp256k1",
+            partyIDsJSON: partyIDsJSONString,
+            keyDataJSON: keyDataJSON
         )
         
-        return signature
+        // 5. 等待完成（通过 CompletionHandler 回调）
+        // 签名会在 onSignComplete 回调中返回
+    }
+    
+    // 处理接收到的消息
+    public func handleIncomingMessage(
+        wireBytes: Data,
+        fromID: String,
+        isBroadcast: Bool
+    ) throws {
+        try partyManager.updateFromBytes(wireBytes, fromID: fromID, isBroadcast: isBroadcast)
+    }
+}
+
+// 消息处理器实现
+class MessageHandlerImpl: NSObject, MessageHandler {
+    private let grpcClient: GRPCClient
+    
+    init(grpcClient: GRPCClient) {
+        self.grpcClient = grpcClient
+    }
+    
+    func onMessage(_ wireBytes: Data, fromID: String, toIDsJSON: String, isBroadcast: Bool) {
+        // 解析接收方 ID 列表
+        if let data = toIDsJSON.data(using: .utf8),
+           let toIDs = try? JSONDecoder().decode([String].self, from: data),
+           !toIDs.isEmpty {
+            // 发送给特定参与方
+            for toID in toIDs {
+                Task {
+                    try? await grpcClient.sendKeygenMessage(
+                        sessionID: currentSessionID,
+                        targetNodeID: toID,
+                        message: wireBytes,
+                        isBroadcast: false
+                    )
+                }
+            }
+        } else if isBroadcast {
+            // 广播消息
+            Task {
+                try? await grpcClient.broadcastKeygenMessage(
+                    sessionID: currentSessionID,
+                    message: wireBytes
+                )
+            }
+        }
+    }
+}
+
+// 完成处理器实现
+class CompletionHandlerImpl: NSObject, CompletionHandler {
+    private let keyShareManager: KeyShareManager
+    
+    init(keyShareManager: KeyShareManager) {
+        self.keyShareManager = keyShareManager
+    }
+    
+    func onKeygenComplete(_ keyDataJSON: String) {
+        // 保存密钥数据到 Secure Enclave
+        do {
+            try keyShareManager.saveKeyDataJSON(keyID: currentKeyID, keyDataJSON: keyDataJSON)
+            NotificationCenter.default.post(name: .keygenCompleted, object: nil)
+        } catch {
+            print("Failed to save key data: \(error)")
+        }
+    }
+    
+    func onSignComplete(_ signatureJSON: String) {
+        // 处理签名结果
+        NotificationCenter.default.post(
+            name: .signCompleted,
+            object: nil,
+            userInfo: ["signature": signatureJSON]
+        )
+    }
+    
+    func onReshareComplete(_ keyDataJSON: String) {
+        // 处理重新分享完成
+    }
+    
+    func onError(_ errorMsg: String) {
+        print("TSS Error: \(errorMsg)")
+        NotificationCenter.default.post(
+            name: .tssError,
+            object: nil,
+            userInfo: ["error": errorMsg]
+        )
     }
 }
 ```
@@ -565,8 +662,20 @@ Pod::Spec.new do |spec|
   
   spec.dependency "gRPC-Swift", "~> 1.0"
   spec.dependency "SwiftProtobuf", "~> 1.0"
-  # tss-lib 需要编译为 iOS 框架或使用 CGO
+  
+  # tss-lib 框架（手动集成）
+  spec.vendored_frameworks = "TssLib.xcframework"
 end
+```
+
+**或使用 Swift Package Manager**:
+```swift
+// Package.swift
+dependencies: [
+    .package(url: "https://github.com/your-org/tss-lib", from: "1.0.0"),
+    // 或使用本地路径
+    .package(path: "../tss-lib/mobile/build/ios")
+]
 ```
 
 ### 4.3 Android 实现方案
@@ -592,75 +701,168 @@ MPCWalletSDK-Android/
 └── build.gradle
 ```
 
-#### 4.3.2 核心实现
+#### 4.3.2 核心实现（基于 tss-lib/mobile）
 
 **MPCClient.kt**:
 ```kotlin
+import go.mobile.tsslib.*  // tss-lib 移动端库
+
 class MPCClient(
     private val nodeID: String,
     private val serverEndpoint: String
 ) {
     private val grpcClient = GRPCClient(serverEndpoint)
     private val keyShareManager = KeyShareManager()
-    private val protocolEngine = ProtocolEngine(nodeID)
+    private val partyManager = PartyManager()
+    
+    init {
+        // 设置消息处理器
+        val msgHandler = MessageHandlerImpl(grpcClient)
+        partyManager.setMessageHandler(msgHandler)
+        
+        // 设置完成处理器
+        val completeHandler = CompletionHandlerImpl(keyShareManager)
+        partyManager.setCompletionHandler(completeHandler)
+        
+        // 创建并设置当前 PartyID
+        val keyHex = generateUniqueKeyHex() // 生成唯一密钥（32字节hex）
+        partyManager.createPartyID(nodeID, "Mobile Node", keyHex)
+        partyManager.setCurrentPartyID(nodeID)
+    }
     
     // 参与 DKG
     suspend fun participateDKG(
         keyID: String,
-        algorithm: String,
         curve: String,
         threshold: Int,
         totalNodes: Int,
         otherNodes: List<String>
-    ): KeyShare = withContext(Dispatchers.Default) {
-        // 1. 启动 DKG 协议
-        val keyShare = protocolEngine.startDKG(
-            keyID = keyID,
-            algorithm = algorithm,
-            curve = curve,
-            threshold = threshold,
-            totalNodes = totalNodes,
-            nodeIDs = listOf(nodeID) + otherNodes,
-            messageRouter = { msg, targetNodeID, isBroadcast ->
-                grpcClient.sendKeygenMessage(
-                    sessionID = keyID,
-                    targetNodeID = targetNodeID,
-                    message = msg,
-                    isBroadcast = isBroadcast
-                )
-            }
+    ) = withContext(Dispatchers.Default) {
+        // 1. 准备参与方 ID 列表
+        val partyIDs = listOf(nodeID) + otherNodes
+        val partyIDsJSON = JSONArray(partyIDs).toString()
+        
+        // 2. 可选：生成预参数（需要几分钟，建议提前生成）
+        val preParamsJSON = GeneratePreParams(60)
+        
+        // 3. 启动 DKG 协议
+        partyManager.startKeygen(
+            curve,  // "secp256k1" 或 "ed25519"
+            partyIDsJSON,
+            threshold,
+            preParamsJSON
         )
         
-        // 2. 存储密钥分片到 Android Keystore
-        keyShareManager.saveKeyShare(keyID, keyShare)
-        
-        keyShare
+        // 4. 等待完成（通过 CompletionHandler 回调）
+        // 密钥数据会在 onKeygenComplete 回调中返回
     }
     
     // 参与签名
     suspend fun participateSigning(
         keyID: String,
         message: ByteArray,
-        sessionID: String
-    ): String = withContext(Dispatchers.Default) {
-        // 1. 从 Android Keystore 加载密钥分片
-        val keyShare = keyShareManager.loadKeyShare(keyID)
+        sessionID: String,
+        otherNodes: List<String>
+    ) = withContext(Dispatchers.Default) {
+        // 1. 从 Android Keystore 加载密钥数据
+        val keyDataJSON = keyShareManager.loadKeyDataJSON(keyID)
         
-        // 2. 执行签名协议
-        protocolEngine.thresholdSign(
-            keyID = keyID,
-            keyShare = keyShare,
-            message = message,
-            sessionID = sessionID,
-            messageRouter = { msg, targetNodeID, isBroadcast ->
-                grpcClient.sendSigningMessage(
-                    sessionID = sessionID,
-                    targetNodeID = targetNodeID,
-                    message = msg,
-                    isBroadcast = isBroadcast
-                )
-            }
+        // 2. 准备参与方 ID 列表
+        val partyIDs = listOf(nodeID) + otherNodes
+        val partyIDsJSON = JSONArray(partyIDs).toString()
+        
+        // 3. 将消息转换为 hex
+        val messageHex = message.joinToString("") { "%02x".format(it) }
+        
+        // 4. 启动签名协议
+        partyManager.startSigning(
+            messageHex,
+            "secp256k1",
+            partyIDsJSON,
+            keyDataJSON
         )
+        
+        // 5. 等待完成（通过 CompletionHandler 回调）
+        // 签名会在 onSignComplete 回调中返回
+    }
+    
+    // 处理接收到的消息
+    fun handleIncomingMessage(
+        wireBytes: ByteArray,
+        fromID: String,
+        isBroadcast: Boolean
+    ) {
+        partyManager.updateFromBytes(wireBytes, fromID, isBroadcast)
+    }
+}
+
+// 消息处理器实现
+class MessageHandlerImpl(
+    private val grpcClient: GRPCClient
+) : MessageHandler {
+    override fun onMessage(
+        wireBytes: ByteArray,
+        fromID: String,
+        toIDsJSON: String,
+        isBroadcast: Boolean
+    ) {
+        // 解析接收方 ID 列表
+        val toIDs = try {
+            JSONArray(toIDsJSON).let { array ->
+                (0 until array.length()).map { array.getString(it) }
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+        
+        if (toIDs.isEmpty() || isBroadcast) {
+            // 广播消息
+            CoroutineScope(Dispatchers.IO).launch {
+                grpcClient.broadcastKeygenMessage(currentSessionID, wireBytes)
+            }
+        } else {
+            // 发送给特定参与方
+            for (toID in toIDs) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    grpcClient.sendKeygenMessage(
+                        currentSessionID,
+                        toID,
+                        wireBytes,
+                        false
+                    )
+                }
+            }
+        }
+    }
+}
+
+// 完成处理器实现
+class CompletionHandlerImpl(
+    private val keyShareManager: KeyShareManager
+) : CompletionHandler {
+    override fun onKeygenComplete(keyDataJSON: String) {
+        // 保存密钥数据到 Android Keystore
+        try {
+            keyShareManager.saveKeyDataJSON(currentKeyID, keyDataJSON)
+            // 通知完成
+            EventBus.post(KeygenCompletedEvent(keyDataJSON))
+        } catch (e: Exception) {
+            Log.e("MPC", "Failed to save key data", e)
+        }
+    }
+    
+    override fun onSignComplete(signatureJSON: String) {
+        // 处理签名结果
+        EventBus.post(SignCompletedEvent(signatureJSON))
+    }
+    
+    override fun onReshareComplete(keyDataJSON: String) {
+        // 处理重新分享完成
+    }
+    
+    override fun onError(errorMsg: String) {
+        Log.e("TSS", "Error: $errorMsg")
+        EventBus.post(TssErrorEvent(errorMsg))
     }
 }
 ```
@@ -813,24 +1015,82 @@ class GRPCClient(private val endpoint: String) {
 
 ### 4.5 tss-lib 集成
 
-#### 4.5.1 编译选项
+#### 4.5.1 使用 tss-lib/mobile 包
 
-**iOS**:
-- 使用 CGO 编译 tss-lib 为 iOS 框架
-- 或使用 Go Mobile 工具生成 Objective-C/Swift 绑定
+**tss-lib 已提供移动端 API 包装**，位于 `github.com/kashguard/tss-lib/mobile`，使用 gomobile 编译为 iOS/Android 库。
 
-**Android**:
-- 使用 Go Mobile 工具生成 Java/Kotlin 绑定
-- 或使用 gomobile 编译为 AAR 库
+**构建产物位置**:
+- **iOS**: `tss-lib/mobile/build/ios/TssLib.xcframework` (支持真机和模拟器)
+- **Android**: `tss-lib/mobile/build/android/tsslib.aar`
 
-**编译命令**:
+**构建步骤**:
 ```bash
-# iOS
-gomobile bind -target=ios -o MPCWalletSDK.framework ./mobile
+# 1. 克隆或进入 tss-lib 仓库
+cd /path/to/tss-lib/mobile
 
-# Android
-gomobile bind -target=android -o mpcwalletsdk.aar ./mobile
+# 2. 安装 gomobile（如果还没有）
+go install golang.org/x/mobile/cmd/gomobile@latest
+gomobile init
+
+# 3. 构建所有平台
+make all
+
+# 或仅构建 iOS
+make ios
+
+# 或仅构建 Android
+make android
 ```
+
+**前置要求**:
+- Go 1.24 或更高版本
+- gomobile 工具（`go install golang.org/x/mobile/cmd/gomobile@latest`）
+- **iOS**: macOS + Xcode + iOS SDK
+- **Android**: Android SDK + NDK (推荐 r21e 或更高版本)
+
+**验证构建产物**:
+```bash
+# iOS - 检查框架结构
+ls -la build/ios/TssLib.xcframework/
+# 应该显示: ios-arm64 和 ios-arm64_x86_64-simulator 目录
+
+# Android - 检查 AAR 内容
+unzip -l build/android/tsslib.aar
+# 应该包含 classes.jar 和 jni/ 目录
+```
+
+#### 4.5.2 集成到项目
+
+**iOS (Xcode)**:
+1. 将 `TssLib.xcframework` 拖拽到 Xcode 项目中
+2. 在项目设置中，确保 Framework 被添加到 "Embedded Binaries"
+3. 在代码中导入: `import TssLib`
+
+**Android (Gradle)**:
+1. 将 `tsslib.aar` 复制到 `app/libs/` 目录
+2. 在 `app/build.gradle` 中添加:
+```gradle
+dependencies {
+    implementation files('libs/tsslib.aar')
+}
+```
+
+#### 4.5.3 API 使用
+
+tss-lib/mobile 提供了 `PartyManager` 类，封装了 DKG 和签名协议：
+
+**核心接口**:
+- `PartyManager`: 管理 TSS 协议执行
+- `MessageHandler`: 处理出站消息的回调接口
+- `CompletionHandler`: 处理协议完成的回调接口
+
+**主要方法**:
+- `StartKeygen()`: 启动密钥生成协议
+- `StartSigning()`: 启动签名协议
+- `UpdateFromBytes()`: 处理接收到的消息
+- `GetWaitingFor()`: 获取正在等待的参与方列表
+
+详细 API 文档请参考: `/path/to/tss-lib/mobile/README.md`
 
 ---
 
@@ -1015,12 +1275,27 @@ A:
 
 ## 8. 参考资料
 
+### 8.1 项目文档
 - [MPC 产品需求文档](../design/docs/MPC-Wallet-PRD-v2.md)
 - [MPC 详细设计文档](./mpc-detailed-design.md)
-- [tss-lib 文档](https://github.com/bnb-chain/tss-lib)
+
+### 8.2 tss-lib 移动端
+- [tss-lib/mobile README](../../tss-lib/mobile/README.md) - 移动端 API 文档
+- [tss-lib/mobile QUICKSTART](../../tss-lib/mobile/QUICKSTART.md) - 快速开始指南
+- [tss-lib/mobile BUILD](../../tss-lib/mobile/BUILD.md) - 构建说明
+- [tss-lib 主仓库](https://github.com/kashguard/tss-lib)
+
+### 8.3 工具和框架
 - [Go Mobile 文档](https://pkg.go.dev/golang.org/x/mobile)
+- [gomobile 命令参考](https://pkg.go.dev/golang.org/x/mobile/cmd/gomobile)
+
+### 8.4 平台安全
 - [iOS Secure Enclave](https://developer.apple.com/documentation/security/certificate_key_and_trust_services/keys/storing_keys_in_the_secure_enclave)
 - [Android Keystore](https://developer.android.com/training/articles/keystore)
+
+### 8.5 网络通信
+- [gRPC Swift](https://github.com/grpc/grpc-swift)
+- [gRPC Kotlin](https://github.com/grpc/grpc-kotlin)
 
 ---
 
