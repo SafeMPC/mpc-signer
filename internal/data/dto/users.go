@@ -7,9 +7,9 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/strfmt/conv"
 	"github.com/go-openapi/swag"
-	"github.com/kashguard/go-mpc-infra/internal/models"
-	"github.com/kashguard/go-mpc-infra/internal/types"
-	"github.com/kashguard/go-mpc-infra/internal/util"
+	"github.com/SafeMPC/mpc-signer/internal/models"
+	"github.com/SafeMPC/mpc-signer/internal/types"
+	"github.com/SafeMPC/mpc-signer/internal/util"
 )
 
 type User struct {

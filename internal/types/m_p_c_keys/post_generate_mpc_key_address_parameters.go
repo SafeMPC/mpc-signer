@@ -6,13 +6,13 @@ package m_p_c_keys
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"io"
 	"net/http"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/validate"
 )
 
 // NewPostGenerateMpcKeyAddressParams creates a new PostGenerateMpcKeyAddressParams object
@@ -33,9 +33,9 @@ type PostGenerateMpcKeyAddressParams struct {
 
 	/*
 	  Required: true
-	  In: query
+	  In: body
 	*/
-	ChainType string `query:"chain_type"`
+	Body PostGenerateMpcKeyAddressBody
 	/*
 	  Required: true
 	  In: path
@@ -52,13 +52,28 @@ func (o *PostGenerateMpcKeyAddressParams) BindRequest(r *http.Request, route *mi
 
 	o.HTTPRequest = r
 
-	qs := runtime.Values(r.URL.Query())
+	if runtime.HasBody(r) {
+		defer r.Body.Close()
+		var body PostGenerateMpcKeyAddressBody
+		if err := route.Consumer.Consume(r.Body, &body); err != nil {
+			if err == io.EOF {
+				res = append(res, errors.Required("body", "body", ""))
+			} else {
+				res = append(res, errors.NewParseError("body", "body", "", err))
+			}
+		} else {
+			// validate body object
+			if err := body.Validate(route.Formats); err != nil {
+				res = append(res, err)
+			}
 
-	qChainType, qhkChainType, _ := qs.GetOK("chain_type")
-	if err := o.bindChainType(qChainType, qhkChainType, route.Formats); err != nil {
-		res = append(res, err)
+			if len(res) == 0 {
+				o.Body = body
+			}
+		}
+	} else {
+		res = append(res, errors.Required("body", "body", ""))
 	}
-
 	rKeyID, rhkKeyID, _ := route.Params.GetOK("keyId")
 	if err := o.bindKeyID(rKeyID, rhkKeyID, route.Formats); err != nil {
 		res = append(res, err)
@@ -73,12 +88,13 @@ func (o *PostGenerateMpcKeyAddressParams) BindRequest(r *http.Request, route *mi
 func (o *PostGenerateMpcKeyAddressParams) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	// chain_type
+	// body
 	// Required: true
-	// AllowEmptyValue: false
-	if err := validate.Required("chain_type", "query", o.ChainType); err != nil {
-		res = append(res, err)
-	}
+
+	// body is validated in endpoint
+	//if err := o.Body.Validate(formats); err != nil {
+	//  res = append(res, err)
+	//}
 
 	// keyId
 	// Required: true
@@ -87,27 +103,6 @@ func (o *PostGenerateMpcKeyAddressParams) Validate(formats strfmt.Registry) erro
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
-	return nil
-}
-
-// bindChainType binds and validates parameter ChainType from query.
-func (o *PostGenerateMpcKeyAddressParams) bindChainType(rawData []string, hasKey bool, formats strfmt.Registry) error {
-	if !hasKey {
-		return errors.Required("chain_type", "query", rawData)
-	}
-	var raw string
-	if len(rawData) > 0 {
-		raw = rawData[len(rawData)-1]
-	}
-
-	// Required: true
-	// AllowEmptyValue: false
-	if err := validate.RequiredString("chain_type", "query", raw); err != nil {
-		return err
-	}
-
-	o.ChainType = raw
-
 	return nil
 }
 

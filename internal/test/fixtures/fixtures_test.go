@@ -6,9 +6,9 @@ import (
 
 	"github.com/aarondl/null/v8"
 	"github.com/aarondl/sqlboiler/v4/boil"
-	"github.com/kashguard/go-mpc-infra/internal/models"
-	"github.com/kashguard/go-mpc-infra/internal/test"
-	"github.com/kashguard/go-mpc-infra/internal/test/fixtures"
+	"github.com/SafeMPC/mpc-signer/internal/models"
+	"github.com/SafeMPC/mpc-signer/internal/test"
+	"github.com/SafeMPC/mpc-signer/internal/test/fixtures"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

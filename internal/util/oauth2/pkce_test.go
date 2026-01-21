@@ -3,7 +3,7 @@ package oauth2_test
 import (
 	"testing"
 
-	"github.com/kashguard/go-mpc-infra/internal/util/oauth2"
+	"github.com/SafeMPC/mpc-signer/internal/util/oauth2"
 	"github.com/stretchr/testify/assert"
 )
 

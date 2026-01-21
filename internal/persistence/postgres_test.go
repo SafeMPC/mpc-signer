@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/kashguard/go-mpc-infra/internal/config"
-	"github.com/kashguard/go-mpc-infra/internal/test"
+	"github.com/SafeMPC/mpc-signer/internal/config"
+	"github.com/SafeMPC/mpc-signer/internal/test"
 	migrate "github.com/rubenv/sql-migrate"
 	"github.com/stretchr/testify/require"
 )

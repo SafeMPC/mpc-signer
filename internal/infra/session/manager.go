@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/kashguard/go-mpc-infra/internal/infra/storage"
+	"github.com/SafeMPC/mpc-signer/internal/infra/storage"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )

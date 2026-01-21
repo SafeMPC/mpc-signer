@@ -13,7 +13,6 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
-	"github.com/go-openapi/validate"
 )
 
 // NewGetMpcKeysParams creates a new GetMpcKeysParams object
@@ -23,7 +22,7 @@ func NewGetMpcKeysParams() GetMpcKeysParams {
 	var (
 		// initialize parameters with default values
 
-		limitDefault  = int64(50)
+		limitDefault  = int64(20)
 		offsetDefault = int64(0)
 	)
 
@@ -43,14 +42,13 @@ type GetMpcKeysParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
-	/*链类型过滤
+	/*过滤区块链类型
 	  In: query
 	*/
 	ChainType *string `query:"chain_type"`
 	/*
-	  Maximum: 1000
 	  In: query
-	  Default: 50
+	  Default: 20
 	*/
 	Limit *int64 `query:"limit"`
 	/*
@@ -58,7 +56,7 @@ type GetMpcKeysParams struct {
 	  Default: 0
 	*/
 	Offset *int64 `query:"offset"`
-	/*状态过滤
+	/*过滤状态
 	  In: query
 	*/
 	Status *string `query:"status"`
@@ -112,10 +110,6 @@ func (o *GetMpcKeysParams) Validate(formats strfmt.Registry) error {
 	// Required: false
 	// AllowEmptyValue: false
 
-	if err := o.validateLimit(formats); err != nil {
-		res = append(res, err)
-	}
-
 	// offset
 	// Required: false
 	// AllowEmptyValue: false
@@ -167,25 +161,6 @@ func (o *GetMpcKeysParams) bindLimit(rawData []string, hasKey bool, formats strf
 		return errors.InvalidType("limit", "query", "int64", raw)
 	}
 	o.Limit = &value
-
-	if err := o.validateLimit(formats); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// validateLimit carries on validations for parameter Limit
-func (o *GetMpcKeysParams) validateLimit(formats strfmt.Registry) error {
-
-	// Required: false
-	if o.Limit == nil {
-		return nil
-	}
-
-	if err := validate.MaximumInt("limit", "query", *o.Limit, 1000, false); err != nil {
-		return err
-	}
 
 	return nil
 }

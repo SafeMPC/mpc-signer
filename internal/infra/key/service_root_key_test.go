@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kashguard/go-mpc-infra/internal/infra/backup"
-	"github.com/kashguard/go-mpc-infra/internal/infra/storage"
-	"github.com/kashguard/go-mpc-infra/internal/mpc/protocol"
+	"github.com/SafeMPC/mpc-signer/internal/infra/backup"
+	"github.com/SafeMPC/mpc-signer/internal/infra/storage"
+	"github.com/SafeMPC/mpc-signer/internal/mpc/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

@@ -5,12 +5,12 @@ import (
 	"testing"
 
 	"github.com/aarondl/sqlboiler/v4/boil"
-	"github.com/kashguard/go-mpc-infra/internal/data/mapper"
-	"github.com/kashguard/go-mpc-infra/internal/models"
-	"github.com/kashguard/go-mpc-infra/internal/push"
-	"github.com/kashguard/go-mpc-infra/internal/push/provider"
-	"github.com/kashguard/go-mpc-infra/internal/test"
-	"github.com/kashguard/go-mpc-infra/internal/test/fixtures"
+	"github.com/SafeMPC/mpc-signer/internal/data/mapper"
+	"github.com/SafeMPC/mpc-signer/internal/models"
+	"github.com/SafeMPC/mpc-signer/internal/push"
+	"github.com/SafeMPC/mpc-signer/internal/push/provider"
+	"github.com/SafeMPC/mpc-signer/internal/test"
+	"github.com/SafeMPC/mpc-signer/internal/test/fixtures"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

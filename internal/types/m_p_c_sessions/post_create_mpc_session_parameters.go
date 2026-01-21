@@ -14,7 +14,7 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
 
-	"github.com/kashguard/go-mpc-infra/internal/types"
+	"github.com/SafeMPC/mpc-signer/internal/types"
 )
 
 // NewPostCreateMpcSessionParams creates a new PostCreateMpcSessionParams object

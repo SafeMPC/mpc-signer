@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/kashguard/go-mpc-infra/internal/util"
+	"github.com/SafeMPC/mpc-signer/internal/util"
 	"github.com/stretchr/testify/assert"
 )
 

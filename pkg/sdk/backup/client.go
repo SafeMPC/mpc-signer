@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	pb "github.com/kashguard/go-mpc-infra/pb/infra/v1"
-	pkgbackup "github.com/kashguard/go-mpc-infra/pkg/backup"
+	pb "github.com/SafeMPC/mpc-signer/pb/infra/v1"
+	pkgbackup "github.com/SafeMPC/mpc-signer/pkg/backup"
 	"google.golang.org/grpc"
 )
 

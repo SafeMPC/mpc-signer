@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kashguard/go-mpc-infra/internal/api/httperrors"
+	"github.com/SafeMPC/mpc-signer/internal/api/httperrors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

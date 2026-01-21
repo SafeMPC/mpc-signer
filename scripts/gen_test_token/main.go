@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kashguard/go-mpc-infra/internal/auth"
+	"github.com/SafeMPC/mpc-signer/internal/auth"
 )
 
 func main() {

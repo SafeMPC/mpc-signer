@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kashguard/go-mpc-infra/internal/auth"
-	"github.com/kashguard/go-mpc-infra/internal/infra/storage"
-	pb "github.com/kashguard/go-mpc-infra/pb/mpc/v1"
+	"github.com/SafeMPC/mpc-signer/internal/auth"
+	"github.com/SafeMPC/mpc-signer/internal/infra/storage"
+	pb "github.com/SafeMPC/mpc-signer/pb/mpc/v1"
 	"github.com/rs/zerolog/log"
 )
 

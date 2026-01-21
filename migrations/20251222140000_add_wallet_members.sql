@@ -9,3 +9,4 @@ CREATE TABLE wallet_members (
 
 -- +migrate Down
 DROP TABLE wallet_members;
+

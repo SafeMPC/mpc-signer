@@ -5,8 +5,8 @@ import (
 
 	"github.com/aarondl/sqlboiler/v4/queries"
 	"github.com/aarondl/sqlboiler/v4/queries/qm"
-	"github.com/kashguard/go-mpc-infra/internal/models"
-	"github.com/kashguard/go-mpc-infra/internal/util/db"
+	"github.com/SafeMPC/mpc-signer/internal/models"
+	"github.com/SafeMPC/mpc-signer/internal/util/db"
 )
 
 type PublicName struct {

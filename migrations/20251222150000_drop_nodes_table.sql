@@ -17,3 +17,4 @@ CREATE TABLE nodes (
 CREATE INDEX idx_nodes_type ON nodes (node_type);
 
 CREATE INDEX idx_nodes_status ON nodes (status);
+

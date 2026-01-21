@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kashguard/go-mpc-infra/internal/infra/storage"
-	"github.com/kashguard/go-mpc-infra/internal/mpc/node"
-	"github.com/kashguard/go-mpc-infra/internal/mpc/protocol"
-	pb "github.com/kashguard/go-mpc-infra/pb/mpc/v1"
+	"github.com/SafeMPC/mpc-signer/internal/infra/storage"
+	"github.com/SafeMPC/mpc-signer/internal/mpc/node"
+	"github.com/SafeMPC/mpc-signer/internal/mpc/protocol"
+	pb "github.com/SafeMPC/mpc-signer/pb/mpc/v1"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )

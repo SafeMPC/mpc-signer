@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kashguard/go-mpc-infra/internal/infra/storage"
+	"github.com/SafeMPC/mpc-signer/internal/infra/storage"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"

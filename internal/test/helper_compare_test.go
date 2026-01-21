@@ -10,8 +10,8 @@ import (
 
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/strfmt/conv"
-	"github.com/kashguard/go-mpc-infra/internal/test"
-	"github.com/kashguard/go-mpc-infra/internal/util"
+	"github.com/SafeMPC/mpc-signer/internal/test"
+	"github.com/SafeMPC/mpc-signer/internal/util"
 	"github.com/stretchr/testify/require"
 )
 

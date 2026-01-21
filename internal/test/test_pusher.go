@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/kashguard/go-mpc-infra/internal/push"
-	"github.com/kashguard/go-mpc-infra/internal/push/provider"
+	"github.com/SafeMPC/mpc-signer/internal/push"
+	"github.com/SafeMPC/mpc-signer/internal/push/provider"
 )
 
 func WithTestPusher(t *testing.T, closure func(p *push.Service, db *sql.DB)) {

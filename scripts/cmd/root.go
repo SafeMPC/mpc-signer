@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/kashguard/go-mpc-infra/scripts/internal/util"
+	"github.com/SafeMPC/mpc-signer/scripts/internal/util"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )

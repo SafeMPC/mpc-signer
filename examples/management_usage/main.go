@@ -9,7 +9,7 @@ import (
 	"log"
 	"time"
 
-	pb "github.com/kashguard/go-mpc-infra/pb/mpc/v1"
+	pb "github.com/SafeMPC/mpc-signer/pb/mpc/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

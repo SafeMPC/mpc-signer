@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kashguard/go-mpc-infra/internal/util"
+	"github.com/SafeMPC/mpc-signer/internal/util"
 )
 
 // The DatabaseMigrationTable name is baked into the binary

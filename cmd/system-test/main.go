@@ -19,7 +19,7 @@ import (
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/kashguard/go-mpc-infra/internal/types/infrastructure"
+	"github.com/SafeMPC/mpc-signer/internal/types/infrastructure"
 )
 
 const (

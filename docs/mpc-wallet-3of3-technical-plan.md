@@ -833,9 +833,9 @@ go-personal-wallet/
 module github.com/kashguard/go-mpcvault-server
 
 require (
-    github.com/kashguard/go-mpc-infrastructure v0.1.0
+    github.com/SafeMPC/mpc-signerstructure v0.1.0
     // 或者直接引用 protobuf
-    github.com/kashguard/go-mpc-infrastructure/proto/infrastructure/v1 v0.1.0
+    github.com/SafeMPC/mpc-signerstructure/proto/infrastructure/v1 v0.1.0
 )
 ```
 
@@ -922,7 +922,7 @@ syntax = "proto3";
 
 package mpc.infrastructure.v1;
 
-option go_package = "github.com/kashguard/go-mpc-infrastructure/proto/infrastructure/v1";
+option go_package = "github.com/SafeMPC/mpc-signerstructure/proto/infrastructure/v1";
 
 // KeyService 密钥服务
 service KeyService {
@@ -999,7 +999,7 @@ syntax = "proto3";
 
 package mpc.infrastructure.v1;
 
-option go_package = "github.com/kashguard/go-mpc-infrastructure/proto/infrastructure/v1";
+option go_package = "github.com/SafeMPC/mpc-signerstructure/proto/infrastructure/v1";
 
 // SigningService 签名服务
 service SigningService {
@@ -2541,7 +2541,7 @@ mkdir go-mpc-infrastructure
 cd go-mpc-infrastructure
 
 # 初始化 Go 模块
-go mod init github.com/kashguard/go-mpc-infrastructure
+go mod init github.com/SafeMPC/mpc-signerstructure
 
 # 从当前代码库复制基础设施层代码
 # - internal/mpc/ (protocol, key, signing, session, node, storage)
@@ -2570,10 +2570,10 @@ go mod init github.com/kashguard/go-personal-wallet
 ```bash
 # 在应用层代码库中添加基础设施层作为 submodule
 cd go-mpcvault-server
-git submodule add https://github.com/kashguard/go-mpc-infrastructure.git proto/infrastructure
+git submodule add https://github.com/SafeMPC/mpc-signerstructure.git proto/infrastructure
 
 # 在 go.mod 中引用
-replace github.com/kashguard/go-mpc-infrastructure/proto => ./proto/infrastructure/proto
+replace github.com/SafeMPC/mpc-signerstructure/proto => ./proto/infrastructure/proto
 ```
 
 **方案二：Go Module 依赖**
@@ -2583,12 +2583,12 @@ replace github.com/kashguard/go-mpc-infrastructure/proto => ./proto/infrastructu
 module github.com/kashguard/go-mpcvault-server
 
 require (
-    github.com/kashguard/go-mpc-infrastructure v0.1.0
+    github.com/SafeMPC/mpc-signerstructure v0.1.0
 )
 
 // 使用生成的 protobuf 代码
 import (
-    pb "github.com/kashguard/go-mpc-infrastructure/proto/infrastructure/v1"
+    pb "github.com/SafeMPC/mpc-signerstructure/proto/infrastructure/v1"
 )
 ```
 

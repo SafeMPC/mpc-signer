@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kashguard/go-mpc-infra/internal/infra/key"
-	"github.com/kashguard/go-mpc-infra/internal/infra/session"
-	"github.com/kashguard/go-mpc-infra/internal/mpc/node"
-	"github.com/kashguard/go-mpc-infra/internal/mpc/protocol"
-	pb "github.com/kashguard/go-mpc-infra/pb/mpc/v1"
+	"github.com/SafeMPC/mpc-signer/internal/infra/key"
+	"github.com/SafeMPC/mpc-signer/internal/infra/session"
+	"github.com/SafeMPC/mpc-signer/internal/mpc/node"
+	"github.com/SafeMPC/mpc-signer/internal/mpc/protocol"
+	pb "github.com/SafeMPC/mpc-signer/pb/mpc/v1"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
@@ -199,7 +199,7 @@ func (s *Service) ThresholdSign(ctx context.Context, req *SignRequest) (*SignRes
 		}
 
 		// 发现节点时，只选择 participant 类型且 purpose=signing 的节点
-		participants, err := s.nodeDiscovery.DiscoverNodes(ctx, node.NodeTypeParticipant, node.NodeStatusActive, limit)
+		participants, err := s.nodeDiscovery.DiscoverNodes(ctx, node.NodeTypeSigner, node.NodeStatusActive, limit)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to discover participants")
 		}

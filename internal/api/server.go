@@ -8,26 +8,26 @@ import (
 	"net/http"
 
 	"github.com/dropbox/godropbox/time2"
-	"github.com/kashguard/go-mpc-infra/internal/config"
-	"github.com/kashguard/go-mpc-infra/internal/data/dto"
-	"github.com/kashguard/go-mpc-infra/internal/data/local"
-	"github.com/kashguard/go-mpc-infra/internal/i18n"
-	"github.com/kashguard/go-mpc-infra/internal/mailer"
-	"github.com/kashguard/go-mpc-infra/internal/metrics"
-	"github.com/kashguard/go-mpc-infra/internal/push"
-	"github.com/kashguard/go-mpc-infra/internal/util"
+	"github.com/SafeMPC/mpc-signer/internal/config"
+	"github.com/SafeMPC/mpc-signer/internal/data/dto"
+	"github.com/SafeMPC/mpc-signer/internal/data/local"
+	"github.com/SafeMPC/mpc-signer/internal/i18n"
+	"github.com/SafeMPC/mpc-signer/internal/mailer"
+	"github.com/SafeMPC/mpc-signer/internal/metrics"
+	"github.com/SafeMPC/mpc-signer/internal/push"
+	"github.com/SafeMPC/mpc-signer/internal/util"
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog/log"
 
 	// MPC imports
-	"github.com/kashguard/go-mpc-infra/internal/infra/coordinator"
-	"github.com/kashguard/go-mpc-infra/internal/infra/discovery"
-	infra_grpc "github.com/kashguard/go-mpc-infra/internal/infra/grpc"
-	"github.com/kashguard/go-mpc-infra/internal/infra/key"
-	"github.com/kashguard/go-mpc-infra/internal/infra/session"
-	"github.com/kashguard/go-mpc-infra/internal/infra/signing"
-	mpcgrpc "github.com/kashguard/go-mpc-infra/internal/mpc/grpc"
-	"github.com/kashguard/go-mpc-infra/internal/mpc/node"
+	"github.com/SafeMPC/mpc-signer/internal/infra/coordinator"
+	"github.com/SafeMPC/mpc-signer/internal/infra/discovery"
+	// infra_grpc "github.com/SafeMPC/mpc-signer/internal/infra/grpc" // 已删除
+	"github.com/SafeMPC/mpc-signer/internal/infra/key"
+	"github.com/SafeMPC/mpc-signer/internal/infra/session"
+	"github.com/SafeMPC/mpc-signer/internal/infra/signing"
+	mpcgrpc "github.com/SafeMPC/mpc-signer/internal/mpc/grpc"
+	"github.com/SafeMPC/mpc-signer/internal/mpc/node"
 
 	// Import postgres driver for database/sql package
 	_ "github.com/lib/pq"
@@ -81,7 +81,7 @@ type Server struct {
 	// gRPC services (unified MPC gRPC)
 	MPCGRPCServer   *mpcgrpc.GRPCServer              // MPC gRPC 服务端（统一实现）
 	MPCGRPCClient   *mpcgrpc.GRPCClient              // MPC gRPC 客户端（用于节点间通信）
-	InfraGRPCServer *infra_grpc.InfrastructureServer // Infrastructure gRPC Server (Application Layer)
+	// InfraGRPCServer *infra_grpc.InfrastructureServer // Infrastructure gRPC Server (Application Layer) // 已删除
 }
 
 // newServerWithComponents is used by wire to initialize the server components.
@@ -107,7 +107,7 @@ func newServerWithComponents(
 	mpcGRPCServer *mpcgrpc.GRPCServer, // ✅ 统一的 MPC gRPC 服务端
 	mpcGRPCClient *mpcgrpc.GRPCClient, // ✅ 统一的 MPC gRPC 客户端
 	discoveryService *discovery.Service, // ✅ 新的统一服务发现
-	infraGRPCServer *infra_grpc.InfrastructureServer,
+	// infraGRPCServer *infra_grpc.InfrastructureServer, // 已删除
 ) *Server {
 	s := &Server{
 		Config:  cfg,
@@ -131,7 +131,7 @@ func newServerWithComponents(
 		MPCGRPCServer:    mpcGRPCServer,    // ✅ 统一的 MPC gRPC 服务端
 		MPCGRPCClient:    mpcGRPCClient,    // ✅ 统一的 MPC gRPC 客户端
 		DiscoveryService: discoveryService, // ✅ 新的统一服务发现
-		InfraGRPCServer:  infraGRPCServer,
+		// InfraGRPCServer:  infraGRPCServer, // 已删除
 	}
 
 	// 设置 NodeDiscovery 到 MPCGRPCClient，使其能够从 Consul 获取节点信息

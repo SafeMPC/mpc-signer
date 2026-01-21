@@ -1,110 +1,11 @@
-# 定义共享的环境变量值（使用 x- 扩展字段）
-x-common-vars: &common-vars
-  PGDATABASE: "mpc-dev-db"
-  PGUSER: "dbuser"
-  PGPASSWORD: "dbpass"
-  PGHOST: "postgres"
-  PGPORT: "5432"
-  PGSSLMODE: "disable"
-  PROJECT_ROOT_DIR: "/app"
+# mpc-signer docker-compose.yml
+# 只启动 Signer 节点，连接到 mpc-service 的基础设施
 
 services:
   # ============================================
-  # Coordinator 节点（协调者）
+  # Server Signer P2 节点（签名节点 P2 - Signer Node）
   # ============================================
-  coordinator:
-    build:
-      context: .
-      target: development
-    ports:
-      - "8080:8080"  # HTTP API
-      - "9090:9090"  # gRPC
-      - "9094:9094"  # Infra gRPC
-    working_dir: /app
-    user: development
-    volumes:
-      - .:/app:delegated
-      - go-pkg:/go/pkg
-      - workdir-api-tmp:/app/api/tmp
-      - workdir-bin:/app/bin
-      - workdir-tmp:/app/tmp
-      - vscode-extensions:/home/development/.vscode-server/extensions
-      - vscode-extensions-insiders:/home/development/.vscode-server-insiders/extensions
-      - bash-history:/home/development/commandhistory
-      - coordinator-key-shares:/app/var/lib/mpc/key-shares
-    depends_on:
-      postgres:
-        condition: service_healthy
-      consul:
-        condition: service_started
-      redis:
-        condition: service_started
-    environment:
-      # Database configuration
-      <<: *common-vars
-      PSQL_DBNAME: "spec"
-      PSQL_USER: "dbuser"
-      PSQL_PASS: "dbpass"
-      PSQL_HOST: "postgres"
-      PSQL_PORT: "5432"
-      PSQL_SSLMODE: "disable"
-      SERVER_LOGGER_PRETTY_PRINT_CONSOLE: "true"
-      SERVER_MANAGEMENT_SECRET: "mgmtpass"
-      CHANGIE_CONFIG_PATH: "/app/.changie-go-starter.yaml"
-      # MPC Coordinator configuration
-      MPC_NODE_TYPE: "coordinator"
-      MPC_NODE_ID: "coordinator-1"
-      MPC_CONSUL_ADDRESS: "consul:8500"
-      MPC_STORAGE_BACKEND: "postgresql"
-      MPC_REDIS_ENDPOINT: "redis:6379"
-      MPC_KEY_SHARE_STORAGE_PATH: "/app/var/lib/mpc/key-shares"
-      MPC_KEY_SHARE_ENCRYPTION_KEY: "your-encryption-key-here-change-in-production"
-      MPC_SUPPORTED_PROTOCOLS: "gg18,gg20,frost"
-      MPC_DEFAULT_PROTOCOL: "frost"
-      SERVER_ECHO_LISTEN_ADDRESS: ":8080"
-      SERVER_ECHO_BASE_URL: "http://coordinator:8080"
-      MPC_HTTP_PORT: "8080"
-      MPC_GRPC_PORT: "9090"
-      MPC_INFRA_GRPC_PORT: "9094"
-      MPC_TLS_ENABLED: "true"
-      MPC_TLS_CERT_FILE: "/app/certs/server.crt"
-      MPC_TLS_KEY_FILE: "/app/certs/server.key"
-      MPC_TLS_CA_CERT_FILE: "/app/certs/ca.crt"
-      MPC_ENABLE_AUDIT: "true"
-      MPC_ENABLE_POLICY: "true"
-      MPC_KEY_ROTATION_DAYS: "0"
-      MPC_MAX_CONCURRENT_SESSIONS: "100"
-      MPC_MAX_CONCURRENT_SIGNINGS: "50"
-      MPC_SESSION_TIMEOUT: "300"
-    cap_add:
-      - SYS_PTRACE
-    security_opt:
-      - seccomp:unconfined
-    # Overrides default command so things don't shut down after the process ends.
-    command:
-      - /bin/sh
-      - -c
-      - |
-        sudo chown -R development:development /app/api/tmp
-        sudo chown -R development:development /app/bin
-        sudo chown -R development:development /app/tmp
-        chmod +x /app/rksh
-        git config --global --add safe.directory /app
-        exec /app/bin/app server
-        while sleep 1000; do :; done
-
-
-    healthcheck:
-      test: ["CMD", "curl", "-f", "-s", "http://localhost:8080/-/healthy?mgmt-secret=mgmtpass"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-
-  # ============================================
-  # Server Proxy 1 节点（运营方 - Operator）
-  # ============================================
-  server-proxy-1:
+  server-signer-p2:
     build:
       context: .
       target: development
@@ -119,43 +20,41 @@ services:
       - workdir-api-tmp:/app/api/tmp
       - workdir-bin:/app/bin
       - workdir-tmp:/app/tmp
-      - server-proxy-1-key-shares:/app/var/lib/mpc/key-shares
-    depends_on:
-      postgres:
-        condition: service_healthy
-      consul:
-        condition: service_started
-      redis:
-        condition: service_started
-      coordinator:
-        condition: service_started
+      - server-signer-p2-key-shares:/app/var/lib/mpc/key-shares
     environment:
-      <<: *common-vars
+      # Database configuration - 连接到 mpc-service 的 PostgreSQL
+      PGDATABASE: "mpc-dev-db"
+      PGUSER: "dbuser"
+      PGPASSWORD: "dbpass"
+      PGHOST: "host.docker.internal"  # 连接到宿主机上 mpc-service 的 postgres
+      PGPORT: "5432"
+      PGSSLMODE: "disable"
       PSQL_DBNAME: "spec"
       PSQL_USER: "dbuser"
       PSQL_PASS: "dbpass"
-      PSQL_HOST: "postgres"
+      PSQL_HOST: "host.docker.internal"
       PSQL_PORT: "5432"
       PSQL_SSLMODE: "disable"
+      PROJECT_ROOT_DIR: "/app"
       SERVER_LOGGER_PRETTY_PRINT_CONSOLE: "true"
       SERVER_MANAGEMENT_SECRET: "mgmtpass"
       CHANGIE_CONFIG_PATH: "/app/.changie-go-starter.yaml"
-      # MPC Participant configuration
-      MPC_NODE_TYPE: "participant"
-      MPC_NODE_ID: "server-proxy-1"
-      MPC_COORDINATOR_ENDPOINT: "coordinator:9090"
-      MPC_CONSUL_ADDRESS: "consul:8500"
+      # MPC Signer configuration
+      MPC_NODE_TYPE: "signer"
+      MPC_NODE_ID: "server-signer-p2"
+      MPC_SERVICE_ENDPOINT: "host.docker.internal:9090"  # 连接到 mpc-service
+      MPC_CONSUL_ADDRESS: "host.docker.internal:8500"    # 连接到 mpc-service 的 Consul
       MPC_STORAGE_BACKEND: "postgresql"
-      MPC_REDIS_ENDPOINT: "redis:6379"
+      MPC_REDIS_ENDPOINT: "host.docker.internal:6379"    # 连接到 mpc-service 的 Redis
       MPC_KEY_SHARE_STORAGE_PATH: "/app/var/lib/mpc/key-shares"
       MPC_KEY_SHARE_ENCRYPTION_KEY: "your-encryption-key-here-change-in-production"
       MPC_SUPPORTED_PROTOCOLS: "gg18,gg20,frost"
       MPC_DEFAULT_PROTOCOL: "frost"
       SERVER_ECHO_LISTEN_ADDRESS: ":8081"
-      SERVER_ECHO_BASE_URL: "http://server-proxy-1:8081"
+      SERVER_ECHO_BASE_URL: "http://localhost:8081"
       MPC_HTTP_PORT: "8081"
       MPC_GRPC_PORT: "9091"
-      MPC_TLS_ENABLED: "true"
+      MPC_TLS_ENABLED: "false"  # 开发环境暂时禁用 TLS
       MPC_TLS_CERT_FILE: "/app/certs/server.crt"
       MPC_TLS_KEY_FILE: "/app/certs/server.key"
       MPC_TLS_CA_CERT_FILE: "/app/certs/ca.crt"
@@ -178,285 +77,23 @@ services:
         sudo chown -R development:development /app/tmp
         chmod +x /app/rksh
         git config --global --add safe.directory /app
-        exec /app/bin/app server
-        while sleep 1000; do :; done
+        # 首次启动需要构建
+        if [ ! -f /app/bin/app ]; then
+          echo "Building application..."
+          cd /app && make build
+        fi
+        # 启动应用，如果失败则保持容器运行
+        /app/bin/app server || while sleep 1000; do :; done
     healthcheck:
       test: ["CMD", "curl", "-f", "-s", "http://localhost:8081/-/healthy?mgmt-secret=mgmtpass"]
       interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 30s
-
-  # ============================================
-  # Server Proxy 2 节点（鉴权代理 - Guardian）
-  # ============================================
-  server-proxy-2:
-    build:
-      context: .
-      target: development
-    ports:
-      - "8082:8082"  # HTTP API
-      - "9092:9092"  # gRPC
-    working_dir: /app
-    user: development
-    volumes:
-      - .:/app:delegated
-      - go-pkg:/go/pkg
-      - workdir-api-tmp:/app/api/tmp
-      - workdir-bin:/app/bin
-      - workdir-tmp:/app/tmp
-      - server-proxy-2-key-shares:/app/var/lib/mpc/key-shares
-    depends_on:
-      postgres:
-        condition: service_healthy
-      consul:
-        condition: service_started
-      redis:
-        condition: service_started
-      coordinator:
-        condition: service_started
-    environment:
-      <<: *common-vars
-      PSQL_DBNAME: "spec"
-      PSQL_USER: "dbuser"
-      PSQL_PASS: "dbpass"
-      PSQL_HOST: "postgres"
-      PSQL_PORT: "5432"
-      PSQL_SSLMODE: "disable"
-      SERVER_LOGGER_PRETTY_PRINT_CONSOLE: "true"
-      SERVER_MANAGEMENT_SECRET: "mgmtpass"
-      CHANGIE_CONFIG_PATH: "/app/.changie-go-starter.yaml"
-      # MPC Participant configuration
-      MPC_NODE_TYPE: "participant"
-      MPC_NODE_ID: "server-proxy-2"
-      MPC_COORDINATOR_ENDPOINT: "coordinator:9090"
-      MPC_CONSUL_ADDRESS: "consul:8500"
-      MPC_STORAGE_BACKEND: "postgresql"
-      MPC_REDIS_ENDPOINT: "redis:6379"
-      MPC_KEY_SHARE_STORAGE_PATH: "/app/var/lib/mpc/key-shares"
-      MPC_KEY_SHARE_ENCRYPTION_KEY: "your-encryption-key-here-change-in-production"
-      MPC_SUPPORTED_PROTOCOLS: "gg18,gg20,frost"
-      MPC_DEFAULT_PROTOCOL: "frost"
-      SERVER_ECHO_LISTEN_ADDRESS: ":8082"
-      SERVER_ECHO_BASE_URL: "http://server-proxy-2:8082"
-      MPC_HTTP_PORT: "8082"
-      MPC_GRPC_PORT: "9092"
-      MPC_TLS_ENABLED: "true"
-      MPC_TLS_CERT_FILE: "/app/certs/server.crt"
-      MPC_TLS_KEY_FILE: "/app/certs/server.key"
-      MPC_TLS_CA_CERT_FILE: "/app/certs/ca.crt"
-      MPC_ENABLE_AUDIT: "true"
-      MPC_ENABLE_POLICY: "true"
-      MPC_KEY_ROTATION_DAYS: "0"
-      MPC_MAX_CONCURRENT_SESSIONS: "100"
-      MPC_MAX_CONCURRENT_SIGNINGS: "50"
-      MPC_SESSION_TIMEOUT: "300"
-    cap_add:
-      - SYS_PTRACE
-    security_opt:
-      - seccomp:unconfined
-    command:
-      - /bin/sh
-      - -c
-      - |
-        sudo chown -R development:development /app/api/tmp
-        sudo chown -R development:development /app/bin
-        sudo chown -R development:development /app/tmp
-        chmod +x /app/rksh
-        git config --global --add safe.directory /app
-        exec /app/bin/app server
-        while sleep 1000; do :; done
-    healthcheck:
-      test: ["CMD", "curl", "-f", "-s", "http://localhost:8082/-/healthy?mgmt-secret=mgmtpass"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-
-  # ============================================
-  # Server Backup 1 节点（冷备份 - Cold Backup）
-  # ============================================
-  server-backup-1:
-    build:
-      context: .
-      target: development
-    ports:
-      - "8083:8083"  # HTTP API
-      - "9093:9093"  # gRPC
-    working_dir: /app
-    user: development
-    volumes:
-      - .:/app:delegated
-      - go-pkg:/go/pkg
-      - workdir-api-tmp:/app/api/tmp
-      - workdir-bin:/app/bin
-      - workdir-tmp:/app/tmp
-      - server-backup-1-key-shares:/app/var/lib/mpc/key-shares
-    depends_on:
-      postgres:
-        condition: service_healthy
-      consul:
-        condition: service_started
-      redis:
-        condition: service_started
-      coordinator:
-        condition: service_started
-    environment:
-      <<: *common-vars
-      PSQL_DBNAME: "spec"
-      PSQL_USER: "dbuser"
-      PSQL_PASS: "dbpass"
-      PSQL_HOST: "postgres"
-      PSQL_PORT: "5432"
-      PSQL_SSLMODE: "disable"
-      SERVER_LOGGER_PRETTY_PRINT_CONSOLE: "true"
-      SERVER_MANAGEMENT_SECRET: "mgmtpass"
-      CHANGIE_CONFIG_PATH: "/app/.changie-go-starter.yaml"
-      # MPC Participant configuration
-      MPC_NODE_TYPE: "participant"
-      MPC_NODE_ID: "server-backup-1"
-      MPC_COORDINATOR_ENDPOINT: "coordinator:9090"
-      MPC_CONSUL_ADDRESS: "consul:8500"
-      MPC_STORAGE_BACKEND: "postgresql"
-      MPC_REDIS_ENDPOINT: "redis:6379"
-      MPC_KEY_SHARE_STORAGE_PATH: "/app/var/lib/mpc/key-shares"
-      MPC_KEY_SHARE_ENCRYPTION_KEY: "your-encryption-key-here-change-in-production"
-      MPC_SUPPORTED_PROTOCOLS: "gg18,gg20,frost"
-      MPC_DEFAULT_PROTOCOL: "frost"
-      SERVER_ECHO_LISTEN_ADDRESS: ":8083"
-      SERVER_ECHO_BASE_URL: "http://server-backup-1:8083"
-      MPC_HTTP_PORT: "8083"
-      MPC_GRPC_PORT: "9093"
-      MPC_TLS_ENABLED: "true"
-      MPC_TLS_CERT_FILE: "/app/certs/server.crt"
-      MPC_TLS_KEY_FILE: "/app/certs/server.key"
-      MPC_TLS_CA_CERT_FILE: "/app/certs/ca.crt"
-      MPC_ENABLE_AUDIT: "true"
-      MPC_ENABLE_POLICY: "true"
-      MPC_KEY_ROTATION_DAYS: "0"
-      MPC_MAX_CONCURRENT_SESSIONS: "100"
-      MPC_MAX_CONCURRENT_SIGNINGS: "50"
-      MPC_SESSION_TIMEOUT: "300"
-    cap_add:
-      - SYS_PTRACE
-    security_opt:
-      - seccomp:unconfined
-    command:
-      - /bin/sh
-      - -c
-      - |
-        sudo chown -R development:development /app/api/tmp
-        sudo chown -R development:development /app/bin
-        sudo chown -R development:development /app/tmp
-        chmod +x /app/rksh
-        git config --global --add safe.directory /app
-        exec /app/bin/app server
-        while sleep 1000; do :; done
-    healthcheck:
-      test: ["CMD", "curl", "-f", "-s", "http://localhost:8083/-/healthy?mgmt-secret=mgmtpass"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-
-  # ============================================
-  # 基础设施服务
-  # ============================================
-
-  postgres:
-    image: postgres:17.4-alpine
-    # ATTENTION: These settings are for development only!
-    # NEVER use fsync=off, synchronous_commit=off, full_page_writes=off in PRODUCTION
-    command: "postgres -c 'shared_buffers=128MB' -c 'fsync=off' -c 'synchronous_commit=off' -c 'full_page_writes=off' -c 'max_connections=100' -c 'client_min_messages=warning'"
-    expose:
-      - "5432"
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_DB: "mpc-dev-db"
-      POSTGRES_USER: "dbuser"
-      POSTGRES_PASSWORD: "dbpass"
-    volumes:
-      - pgvolume:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-  integresql:
-    image: ghcr.io/allaboutapps/integresql:v1.1.0
-    expose:
-      - "5000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      PGHOST: "postgres"
-      PGUSER: "dbuser"
-      PGPASSWORD: "dbpass"
-
-  mailhog:
-    image: mailhog/mailhog
-    expose:
-      - "1025"
-    ports:
-      - "8025:8025"
-
-  swaggerui:
-    image: swaggerapi/swagger-ui:v3.46.0
-    environment:
-      SWAGGER_JSON: "/api/swagger.yml"
-    volumes:
-      - ./api:/api:ro,consistent
-      - ./api/config/swagger-ui-local-translator.js:/usr/share/nginx/configurator/translator.js:ro,delegated
-
-  swaggerui-browser-sync:
-    image: allaboutapps/browser-sync:v2.26.14
-    command: start --proxy 'swaggerui:8080' --port 8081 --files "/api/*.yml"
-    volumes:
-      - ./api:/api:ro,consistent
-    ports:
-      - "8091:8081"  # 改为 8091 避免与 participant-1 冲突
-
-  consul:
-    image: consul:1.15
-    ports:
-      - "8500:8500"
-      - "8600:8600/udp"
-    command: "agent -server -bootstrap-expect=1 -ui -client=0.0.0.0 -log-level=info"
-    volumes:
-      - consul-data:/consul/data
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8500/v1/status/leader"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+      start_period: 60s  # 给构建留足时间
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # 允许访问宿主机服务
 
 volumes:
-  # PostgreSQL data persistence
-  pgvolume:
-
-  # Consul data persistence
-  consul-data:
-
-  # Redis data persistence
-  redis-data:
-
   # Go module cache
   go-pkg:
 
@@ -465,15 +102,5 @@ volumes:
   workdir-bin:
   workdir-tmp:
 
-  # VSCode extensions cache
-  vscode-extensions:
-  vscode-extensions-insiders:
-
-  # Bash history
-  bash-history:
-
-  # MPC key shares storage (每个节点独立的存储卷，确保密钥分片隔离)
-  coordinator-key-shares:
-  server-proxy-1-key-shares:
-  server-proxy-2-key-shares:
-  server-backup-1-key-shares:
+  # MPC key shares storage
+  server-signer-p2-key-shares:

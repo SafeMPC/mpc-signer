@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/kashguard/go-mpc-infra/internal/infra/storage"
+	"github.com/SafeMPC/mpc-signer/internal/infra/storage"
 )
 
 // Delivery Status Constants

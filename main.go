@@ -1,6 +1,6 @@
 package main
 
-import "github.com/kashguard/go-mpc-infra/cmd"
+import "github.com/SafeMPC/mpc-signer/cmd"
 
 func main() {
 	cmd.Execute()

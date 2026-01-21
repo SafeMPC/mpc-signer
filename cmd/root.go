@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kashguard/go-mpc-infra/cmd/cert"
-	"github.com/kashguard/go-mpc-infra/cmd/db"
-	"github.com/kashguard/go-mpc-infra/cmd/env"
-	"github.com/kashguard/go-mpc-infra/cmd/probe"
-	"github.com/kashguard/go-mpc-infra/cmd/server"
-	"github.com/kashguard/go-mpc-infra/internal/config"
+	"github.com/SafeMPC/mpc-signer/cmd/cert"
+	"github.com/SafeMPC/mpc-signer/cmd/db"
+	"github.com/SafeMPC/mpc-signer/cmd/env"
+	"github.com/SafeMPC/mpc-signer/cmd/probe"
+	"github.com/SafeMPC/mpc-signer/cmd/server"
+	"github.com/SafeMPC/mpc-signer/internal/config"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )

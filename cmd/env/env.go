@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/kashguard/go-mpc-infra/internal/config"
+	"github.com/SafeMPC/mpc-signer/internal/config"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )

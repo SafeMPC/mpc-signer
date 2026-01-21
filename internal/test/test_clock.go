@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/dropbox/godropbox/time2"
-	"github.com/kashguard/go-mpc-infra/internal/api"
+	"github.com/SafeMPC/mpc-signer/internal/api"
 )
 
 func GetMockClock(t *testing.T, clock time2.Clock) *time2.MockClock {

@@ -3,7 +3,7 @@ package util_test
 import (
 	"testing"
 
-	"github.com/kashguard/go-mpc-infra/internal/util"
+	"github.com/SafeMPC/mpc-signer/internal/util"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 )

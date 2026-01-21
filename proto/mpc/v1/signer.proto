@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+package mpc.v1;
+
+option go_package = "github.com/SafeMPC/mpc-service/pb/mpc/v1;mpc";
+
+// SignerService 由 mpc-signer 实现，供 mpc-service 调用
+service SignerService {
+  // DKG 相关
+  rpc StartDKG(StartDKGRequest) returns (StartDKGResponse);
+  rpc GetDKGStatus(GetDKGStatusRequest) returns (DKGStatusResponse);
+  
+  // 签名相关
+  rpc StartSign(StartSignRequest) returns (StartSignResponse);
+  rpc GetSignStatus(GetSignStatusRequest) returns (SignStatusResponse);
+  
+  // 协议消息中继（从 Client 通过 Service 中继到 Signer）
+  rpc RelayProtocolMessage(RelayMessageRequest) returns (RelayMessageResponse);
+  
+  // 健康检查
+  rpc Ping(PingRequest) returns (PongResponse);
+}
+
+// ============================================
+// DKG 相关消息
+// ============================================
+
+message StartDKGRequest {
+  string session_id = 1;
+  string key_id = 2;
+  string algorithm = 3;      // "ECDSA"
+  string curve = 4;          // "secp256k1"
+  int32 threshold = 5;       // 2
+  int32 total_nodes = 6;     // 2
+  repeated string node_ids = 7;  // ["mobile-p1", "server-signer-p2"]
+}
+
+message StartDKGResponse {
+  bool started = 1;
+  string message = 2;
+  string error = 3;
+}
+
+message GetDKGStatusRequest {
+  string session_id = 1;
+}
+
+message DKGStatusResponse {
+  string session_id = 1;
+  string status = 2;  // "pending", "running", "completed", "failed"
+  int32 current_round = 3;
+  int32 total_rounds = 4;
+  string public_key = 5;  // 完成后返回（hex）
+  string error = 6;
+}
+
+// ============================================
+// 签名相关消息
+// ============================================
+
+message StartSignRequest {
+  string session_id = 1;
+  string key_id = 2;
+  bytes message = 3;
+  string protocol = 4;       // "gg20", "frost"
+  int32 threshold = 5;
+  repeated string node_ids = 6;
+  string derivation_path = 7;
+  bytes parent_chain_code = 8;
+}
+
+message StartSignResponse {
+  bool started = 1;
+  string message = 2;
+  string error = 3;
+}
+
+message GetSignStatusRequest {
+  string session_id = 1;
+}
+
+message SignStatusResponse {
+  string session_id = 1;
+  string status = 2;
+  int32 current_round = 3;
+  int32 total_rounds = 4;
+  string signature = 5;  // 完成后返回（hex）
+  string error = 6;
+}
+
+// ============================================
+// 协议消息中继
+// ============================================
+
+message RelayMessageRequest {
+  string session_id = 1;
+  string from_node_id = 2;    // "mobile-p1"
+  string to_node_id = 3;      // "server-signer-p2"
+  bytes message_data = 4;     // tss-lib 序列化的消息
+  int32 round = 5;
+  bool is_broadcast = 6;
+  string timestamp = 7;
+  bytes service_signature = 8;  // Service 对消息的 HMAC 签名（防篡改）
+}
+
+message RelayMessageResponse {
+  bool accepted = 1;
+  string message_id = 2;
+  // 如果 Signer 有回复消息，直接返回
+  bytes reply_message = 3;
+  bool has_reply = 4;
+  int32 next_round = 5;
+}
+
+// ============================================
+// 健康检查
+// ============================================
+
+message PingRequest {
+  string from_service = 1;
+  string timestamp = 2;
+}
+
+message PongResponse {
+  bool alive = 1;
+  string node_id = 2;
+  string timestamp = 3;
+}

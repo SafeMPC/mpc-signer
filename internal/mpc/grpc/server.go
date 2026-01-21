@@ -13,14 +13,14 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 
-	"github.com/kashguard/go-mpc-infra/internal/auth"
-	"github.com/kashguard/go-mpc-infra/internal/config"
-	"github.com/kashguard/go-mpc-infra/internal/infra/backup"
-	"github.com/kashguard/go-mpc-infra/internal/infra/session"
-	"github.com/kashguard/go-mpc-infra/internal/infra/storage"
-	"github.com/kashguard/go-mpc-infra/internal/mpc/protocol"
-	"github.com/kashguard/go-mpc-infra/internal/util/cert"
-	pb "github.com/kashguard/go-mpc-infra/pb/mpc/v1"
+	"github.com/SafeMPC/mpc-signer/internal/auth"
+	"github.com/SafeMPC/mpc-signer/internal/config"
+	"github.com/SafeMPC/mpc-signer/internal/infra/backup"
+	"github.com/SafeMPC/mpc-signer/internal/infra/session"
+	"github.com/SafeMPC/mpc-signer/internal/infra/storage"
+	"github.com/SafeMPC/mpc-signer/internal/mpc/protocol"
+	"github.com/SafeMPC/mpc-signer/internal/util/cert"
+	pb "github.com/SafeMPC/mpc-signer/pb/mpc/v1"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
@@ -1193,7 +1193,7 @@ func (s *GRPCServer) SubmitProtocolMessage(ctx context.Context, req *pb.SubmitPr
 func (s *GRPCServer) Heartbeat(ctx context.Context, req *pb.HeartbeatRequest) (*pb.HeartbeatResponse, error) {
 	return &pb.HeartbeatResponse{
 		Alive:         true,
-		CoordinatorId: s.nodeID,
+		CoordinatorId: s.nodeID, // 保持向后兼容，实际是 signer 节点 ID
 		ReceivedAt:    time.Now().Format(time.RFC3339),
 		Instructions:  make(map[string]string),
 	}, nil

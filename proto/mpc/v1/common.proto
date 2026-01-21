@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package mpc.v1;
 
-option go_package = "github.com/kashguard/go-mpc-infra/pb/mpc/v1;mpc";
+option go_package = "github.com/SafeMPC/mpc-signer/pb/mpc/v1;mpc";
 
 // 公共消息类型
 message NodeInfo {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/kashguard/go-mpc-infra/internal/models"
-	"github.com/kashguard/go-mpc-infra/internal/util"
+	"github.com/SafeMPC/mpc-signer/internal/models"
+	"github.com/SafeMPC/mpc-signer/internal/util"
 )
 
 type DatabaseMetricsCollector struct {

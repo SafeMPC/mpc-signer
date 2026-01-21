@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/aarondl/sqlboiler/v4/queries/qm"
-	"github.com/kashguard/go-mpc-infra/internal/types"
+	"github.com/SafeMPC/mpc-signer/internal/types"
 )
 
 func OrderBy(orderDir types.OrderDir, path ...string) qm.QueryMod {

@@ -1,4 +1,4 @@
-module github.com/kashguard/go-mpc-infra
+module github.com/SafeMPC/mpc-signer
 
 go 1.24.0
 

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/kashguard/go-mpc-infra/internal/config"
+	"github.com/SafeMPC/mpc-signer/internal/config"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/text/language"

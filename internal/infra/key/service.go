@@ -8,10 +8,10 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/google/uuid"
-	"github.com/kashguard/go-mpc-infra/internal/infra/backup"
-	"github.com/kashguard/go-mpc-infra/internal/infra/storage"
-	"github.com/kashguard/go-mpc-infra/internal/mpc/chain"
-	"github.com/kashguard/go-mpc-infra/internal/mpc/protocol"
+	"github.com/SafeMPC/mpc-signer/internal/infra/backup"
+	"github.com/SafeMPC/mpc-signer/internal/infra/storage"
+	"github.com/SafeMPC/mpc-signer/internal/mpc/chain"
+	"github.com/SafeMPC/mpc-signer/internal/mpc/protocol"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )

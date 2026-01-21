@@ -6,11 +6,11 @@ import (
 	"errors"
 
 	"github.com/aarondl/sqlboiler/v4/boil"
-	"github.com/kashguard/go-mpc-infra/internal/api/httperrors"
-	"github.com/kashguard/go-mpc-infra/internal/data/dto"
-	"github.com/kashguard/go-mpc-infra/internal/models"
-	"github.com/kashguard/go-mpc-infra/internal/util"
-	"github.com/kashguard/go-mpc-infra/internal/util/db"
+	"github.com/SafeMPC/mpc-signer/internal/api/httperrors"
+	"github.com/SafeMPC/mpc-signer/internal/data/dto"
+	"github.com/SafeMPC/mpc-signer/internal/models"
+	"github.com/SafeMPC/mpc-signer/internal/util"
+	"github.com/SafeMPC/mpc-signer/internal/util/db"
 )
 
 func (s *Service) UpdatePushToken(ctx context.Context, request dto.UpdatePushTokenRequest) error {

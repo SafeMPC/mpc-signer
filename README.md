@@ -1,123 +1,215 @@
-# Enterprise MPC Infrastructure
-> 银行级多方计算（MPC）数字资产托管基座
+# MPC Signer Node
+
+> MPC 签名节点 - 执行 MPC 协议计算的节点（纯 gRPC 服务）
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/go-1.21+-blue.svg)](go.mod)
 
-**go-mpc-infra** 是一套企业级 MPC 钱包基础设施解决方案。它基于阈值签名方案（Threshold Signature Scheme, TSS）构建，旨在为交易所、托管机构、资管平台提供**私钥永不完整出现**、**无单点故障**、**策略驱动**的数字资产管理能力。
-
-不同于传统单私钥钱包或多重签名（MultiSig）合约，本系统在密码学层面实现了通用的多方协同计算，天然支持所有基于 ECDSA (Bitcoin, Ethereum) 和 EdDSA (Solana) 的区块链网络，无需链上合约支持。
+**mpc-signer** 是 MPC 钱包系统中的签名节点，负责执行 MPC 协议计算（DKG 和阈值签名）。
 
 ---
 
-## 核心能力 (Capabilities)
+## 🎯 节点职责
 
-### 1. 🔐 银行级安全架构
-- **私钥分片存储**：私钥在生成瞬间即被切分为 $n$ 个分片，分散存储在不同地理位置、不同云厂商的节点中。任何单一节点（甚至数据库）被攻破都无法还原完整私钥。
-- **MPC 协同签名**：交易签名过程需 $t+1$ 个节点在线协同计算。签名过程中私钥分片从不传输、不汇聚，仅输出最终签名结果。
-- **零信任鉴权**：集成 **WebAuthn (Passkey)** 标准，强制要求硬件级生物识别（TouchID/FaceID/YubiKey）进行管理操作，杜绝 API Key 泄漏导致的权限滥用。
+### 核心功能
+- ✅ **执行 MPC 协议**: 参与 DKG（分布式密钥生成）和阈值签名协议
+- ✅ **存储密钥分片**: 安全存储 P2 密钥分片（加密存储在 Nitro Enclave）
+- ✅ **gRPC 服务**: 接收来自 mpc-service 的请求
+- ✅ **协议支持**: 支持 GG20 (ECDSA) 和 FROST (EdDSA) 协议
 
-### 2. 🌐 弹性分布式网络
-- **去中心化节点发现**：基于 **Consul** 的动态服务发现机制，支持计算节点（Participants）的自动化注册与健康检查。
-- **动态扩缩容**：计算节点无状态化设计，支持根据负载动态增加节点，自动参与 DKG（分布式密钥生成）与签名任务。
-- **高可用容灾**：支持 $t$ 个节点宕机不影响服务可用性。
-
-### 3. 🛡 策略与风控引擎
-- **多层级审批**：支持 M-of-N 管理员审批策略，关键操作（如修改策略、大额转账）需多位管理员 Passkey 签名授权。
-- **细粒度权限**：基于角色的访问控制（RBAC），精确控制成员对钱包的操作权限。
-
-### 4. 🔗 全链通用适配
-- **链无关性（Chain Agnostic）**：底层 MPC 协议不依赖特定区块链虚拟机。
-- **广泛支持**：
-    - **ECDSA (secp256k1)**: Bitcoin, Ethereum, BSC, Tron 等。
-    - **EdDSA (Ed25519)**: Solana, Aptos, Sui, Cardano 等（规划中）。
+### 不提供的功能
+- ❌ **REST API**: 不提供 HTTP API
+- ❌ **用户认证**: 不处理用户认证（由 Service 负责）
+- ❌ **直接客户端访问**: 不接受来自 Client 的直接请求
 
 ---
 
-## 系统架构 (Architecture)
+## 🏗️ 架构说明
 
-系统采用控制平面与计算平面分离的设计：
+### 通信模式
 
-```mermaid
-graph TD
-    User[用户/业务系统] -->|REST/GRPC| Gateway[API Gateway]
-    
-    subgraph "Control Plane (控制平面)"
-        Gateway -->|Auth & Policy| Coordinator[Coordinator Service]
-        Coordinator -->|Meta| DB[(PostgreSQL)]
-        Coordinator -->|Auth| WebAuthn[Passkey Verifier]
-    end
-    
-    subgraph "Compute Plane (计算平面)"
-        Coordinator -->|P2P DKG/Sign| P1[Participant Node 1]
-        Coordinator -->|P2P DKG/Sign| P2[Participant Node 2]
-        Coordinator -->|P2P DKG/Sign| P3[Participant Node 3]
-        
-        P1 <--> P2
-        P2 <--> P3
-        P1 <--> P3
-    end
-    
-    subgraph "Discovery & Config"
-        Consul[Consul Service Registry]
-        Vault["HashiCorp Vault (Optional)"]
-    end
-    
-    P1 -.->|Register| Consul
-    P2 -.->|Register| Consul
-    P3 -.->|Register| Consul
-    Coordinator -.->|Discover| Consul
+```
+Client (P1)
+    │
+    │ REST + WebSocket
+    │
+    ▼
+Service (mpc-service)
+    │
+    │ gRPC + mTLS + Service Token
+    │
+    ▼
+Signer (mpc-signer)
+    │
+    │ 内网 TEE
+    │ AWS Nitro Enclave
 ```
 
-- **Coordinator (协调者)**：负责请求受理、鉴权、策略检查、任务调度，不持有任何私钥分片。
-- **Participants (参与者)**：负责具体的 MPC 密码学计算，持有私钥分片，在隔离环境中运行。
+### 2-of-2 模式
+- **手机端 P1**: 作为 Signer 节点（通过 Service 中继）
+- **服务器端 P2**: 本服务
+
+mpc-signer 只负责执行 MPC 协议计算，不负责会话管理、API 服务等协调工作（这些由 mpc-service 节点负责）。
 
 ---
 
-## 快速开始 (Quick Start)
+## 🔌 gRPC 接口
 
-### 前置要求
-- Docker & Docker Compose
+### SignerService
+
+```protobuf
+service SignerService {
+  // DKG 相关
+  rpc StartDKG(StartDKGRequest) returns (StartDKGResponse);
+  rpc GetDKGStatus(GetDKGStatusRequest) returns (DKGStatusResponse);
+  
+  // 签名相关
+  rpc StartSign(StartSignRequest) returns (StartSignResponse);
+  rpc GetSignStatus(GetSignStatusRequest) returns (SignStatusResponse);
+  
+  // 协议消息处理
+  rpc SubmitProtocolMessage(ProtocolMessageRequest) returns (ProtocolMessageResponse);
+  
+  // 健康检查
+  rpc Ping(PingRequest) returns (PongResponse);
+}
+```
+
+**完整定义**: 参见 `proto/mpc/v1/signer.proto`
+
+---
+
+## 🔒 安全机制
+
+### 1. 网络隔离
+- 部署在 **AWS VPC Private Subnet**
+- 不暴露公网端口
+- 只接受来自 Service 的内网连接
+
+### 2. mTLS 认证
+```yaml
+grpc:
+  tls_enabled: true
+  cert_file: "/app/certs/signer.crt"
+  key_file: "/app/certs/signer.key"
+  ca_cert: "/app/certs/ca.crt"
+  client_auth: "require"  # 要求客户端证书
+```
+
+### 3. Service Token 验证
+- 验证来自 Service 的 JWT token
+- 检查 token 的 audience、issuer、有效期
+- 拒绝未授权的请求
+
+### 4. 消息签名验证
+- 验证协议消息的 HMAC 签名
+- 防止消息被篡改
+- 确保消息来自可信的 Service
+
+---
+
+## 🚀 快速开始
+
+### 环境要求
 - Go 1.21+
+- Docker & Docker Compose
+- 连接到 mpc-service 的网络
 
-### 1. 启动基础设施
-一键拉起 PostgreSQL, Redis, Consul 及所有 MPC 服务节点：
+### 启动服务
+
 ```bash
-make up
+cd mpc-signer
+docker compose up -d server-signer-p2
 ```
 
-### 2. 运行端到端系统测试
-系统内置了完整的集成测试，模拟从节点注册到交易签名的全流程：
-```bash
-# 验证核心流程：节点发现 -> DKG -> Passkey认证 -> TSS签名
-go run cmd/system-test/main.go
+### 配置
+
+Signer 通过环境变量连接到 Service 的基础设施：
+
+```yaml
+MPC_NODE_TYPE: "signer"
+MPC_NODE_ID: "server-signer-p2"
+MPC_SERVICE_ENDPOINT: "host.docker.internal:9090"
+MPC_CONSUL_ADDRESS: "host.docker.internal:8500"
+PGHOST: "host.docker.internal"
+MPC_REDIS_ENDPOINT: "host.docker.internal:6379"
 ```
 
-### 3. API 交互
-服务启动后，可以通过 Swagger UI 探索 API：
-- 地址: `http://localhost:8080/swagger/index.html` (需开启 Swagger 服务)
-- 核心接口：
-    - `POST /v1/infra/keygen`: 发起 DKG 密钥生成
-    - `POST /v1/infra/sign`: 发起 MPC 签名
-    - `POST /v1/infra/wallets/{id}/policy`: 设置风控策略
+### 健康检查
+
+```bash
+# 通过 gRPC 健康检查
+grpcurl -plaintext localhost:9091 mpc.v1.SignerService/Ping
+```
 
 ---
 
-## 路线图 (Roadmap)
+## 📁 目录结构
 
-- [x] **Phase 1: 核心基座 (Current)**
-    - GG18/GG20 协议实现
-    - Consul 动态节点发现
-    - WebAuthn 硬件鉴权
-    - 基础策略引擎
-- [ ] **Phase 2: 增强与扩展**
-    - FROST (Schnorr) 协议支持
-    - 密钥重新分片 (Re-sharing / Key Rotation)
-    - 离线签名支持 (Cold Storage)
-- [ ] **Phase 3: 企业级交付**
-    - TEE (SGX/Nitro) 硬件级隔离支持
-    - 移动端 App 协同签名
-    - 完整的审计后台
+```
+mpc-signer/
+├── internal/
+│   ├── config/              # 配置管理
+│   ├── infra/
+│   │   ├── signing/        # 签名服务
+│   │   ├── dkg/            # DKG 服务
+│   │   ├── session/        # 会话管理
+│   │   └── storage/        # 密钥分片存储
+│   └── mpc/
+│       ├── protocol/        # 协议引擎（GG20/FROST）
+│       ├── grpc/            # gRPC Server（核心）
+│       ├── node/            # 节点管理
+│       └── chain/           # 链适配器
+├── proto/mpc/v1/           # gRPC 定义
+├── pb/mpc/v1/              # 生成的 pb 文件
+├── main.go                 # 启动入口
+└── docker-compose.yml      # Docker 配置
+```
 
-## 许可证
-MIT License
+**注意**: 没有 `api/` 目录和 `handlers/` 目录！
+
+---
+
+## 🔧 开发
+
+### 编译
+```bash
+make build
+```
+
+### 测试
+```bash
+make test
+```
+
+### 进入容器
+```bash
+docker compose exec server-signer-p2 bash
+```
+
+---
+
+## 📖 相关文档
+
+- [V2 架构设计](../design/docs/ARCHITECTURE_V2.md)
+- [接口设计](../design/docs/INTERFACE_DESIGN.md)
+- [开发规范](../.cursorrules)
+- [Service 节点](../mpc-service/README.md)
+
+---
+
+## ⚠️ 重要说明
+
+### Signer 是纯后端服务
+- 没有用户界面
+- 没有 REST API
+- 只通过 gRPC 与 Service 通信
+
+### 部署建议
+- AWS Nitro Enclave
+- VPC Private Subnet
+- 通过 VPN 或 AWS PrivateLink 连接到 Service
+
+---
+
+**Signer = gRPC Server + MPC 计算引擎** 🔐

@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kashguard/go-mpc-infra/internal/api"
-	"github.com/kashguard/go-mpc-infra/internal/test"
+	"github.com/SafeMPC/mpc-signer/internal/api"
+	"github.com/SafeMPC/mpc-signer/internal/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

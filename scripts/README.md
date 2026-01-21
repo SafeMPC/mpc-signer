@@ -38,5 +38,5 @@ gsdev
 # Misses build tag "scripts"
 go run scripts/main.go
 # package command-line-arguments
-# 	imports github.com/kashguard/go-mpc-infra/scripts/cmd: build constraints exclude all Go files in /app/scripts/cmd
+# 	imports github.com/SafeMPC/mpc-signer/scripts/cmd: build constraints exclude all Go files in /app/scripts/cmd
 ```

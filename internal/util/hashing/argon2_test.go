@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/kashguard/go-mpc-infra/internal/util/hashing"
+	"github.com/SafeMPC/mpc-signer/internal/util/hashing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

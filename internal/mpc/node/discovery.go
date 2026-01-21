@@ -3,8 +3,8 @@ package node
 import (
 	"context"
 
-	"github.com/kashguard/go-mpc-infra/internal/infra/discovery"
-	"github.com/kashguard/go-mpc-infra/internal/infra/storage"
+	"github.com/SafeMPC/mpc-signer/internal/infra/discovery"
+	"github.com/SafeMPC/mpc-signer/internal/infra/storage"
 	"github.com/pkg/errors"
 )
 

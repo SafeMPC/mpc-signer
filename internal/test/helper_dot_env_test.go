@@ -4,9 +4,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kashguard/go-mpc-infra/internal/config"
-	"github.com/kashguard/go-mpc-infra/internal/test"
-	"github.com/kashguard/go-mpc-infra/internal/util"
+	"github.com/SafeMPC/mpc-signer/internal/config"
+	"github.com/SafeMPC/mpc-signer/internal/test"
+	"github.com/SafeMPC/mpc-signer/internal/util"
 	"github.com/stretchr/testify/assert"
 )
 

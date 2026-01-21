@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kashguard/go-mpc-infra/internal/config"
-	"github.com/kashguard/go-mpc-infra/internal/mpc/node"
-	pb "github.com/kashguard/go-mpc-infra/pb/mpc/v1"
+	"github.com/SafeMPC/mpc-signer/internal/config"
+	"github.com/SafeMPC/mpc-signer/internal/mpc/node"
+	pb "github.com/SafeMPC/mpc-signer/pb/mpc/v1"
 	"github.com/kashguard/tss-lib/tss"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -99,8 +99,8 @@ func (c *GRPCClient) getOrCreateConnection(ctx context.Context, nodeID string) (
 		// 如果从数据库获取失败，尝试从 Consul 服务发现中获取
 		if c.nodeDiscovery != nil {
 			// 从 Consul 发现节点（尝试发现所有类型的节点）
-			// 注意：这里我们需要知道节点类型，但暂时尝试 participant 和 coordinator
-			for _, nodeType := range []node.NodeType{node.NodeTypeParticipant, node.NodeTypeCoordinator} {
+			// 注意：这里我们需要知道节点类型，但暂时尝试 signer 和 service
+			for _, nodeType := range []node.NodeType{node.NodeTypeSigner, node.NodeTypeService} {
 				// ✅ 使用较小的 limit（与典型参与者数量匹配），并忽略数量不足的错误
 				nodes, discoverErr := c.nodeDiscovery.DiscoverNodes(ctx, nodeType, node.NodeStatusActive, 3)
 				// 即使返回错误（节点数不足），也可能返回了部分节点，继续查找

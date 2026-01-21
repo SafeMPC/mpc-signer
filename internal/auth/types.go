@@ -3,7 +3,7 @@ package auth
 import (
 	"time"
 
-	"github.com/kashguard/go-mpc-infra/internal/data/dto"
+	"github.com/SafeMPC/mpc-signer/internal/data/dto"
 )
 
 type Result struct {

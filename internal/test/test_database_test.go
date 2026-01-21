@@ -8,9 +8,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/kashguard/go-mpc-infra/internal/config"
-	"github.com/kashguard/go-mpc-infra/internal/test"
-	pUtil "github.com/kashguard/go-mpc-infra/internal/util"
+	"github.com/SafeMPC/mpc-signer/internal/config"
+	"github.com/SafeMPC/mpc-signer/internal/test"
+	pUtil "github.com/SafeMPC/mpc-signer/internal/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

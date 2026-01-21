@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/kashguard/go-mpc-infra/internal/infra/storage"
+	"github.com/SafeMPC/mpc-signer/internal/infra/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

@@ -5,7 +5,7 @@ import "time"
 // Node 节点信息
 type Node struct {
 	NodeID        string
-	NodeType      string // coordinator, participant, client
+	NodeType      string // service, signer, client
 	Purpose       string // signing, backup
 	Endpoint      string
 	PublicKey     string
@@ -29,9 +29,9 @@ const (
 type NodeType string
 
 const (
-	NodeTypeCoordinator NodeType = "coordinator"
-	NodeTypeParticipant NodeType = "participant"
-	NodeTypeClient      NodeType = "client"
+	NodeTypeService NodeType = "service" // MPC Service (会话管理/协调，不参与计算)
+	NodeTypeSigner  NodeType = "signer"   // Signer 节点 (参与 MPC 协议计算)
+	NodeTypeClient  NodeType = "client"   // 客户端节点
 )
 
 // NodePurpose 节点用途

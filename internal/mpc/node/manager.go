@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kashguard/go-mpc-infra/internal/infra/discovery"
-	"github.com/kashguard/go-mpc-infra/internal/infra/storage"
+	"github.com/SafeMPC/mpc-signer/internal/infra/discovery"
+	"github.com/SafeMPC/mpc-signer/internal/infra/storage"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
@@ -131,11 +131,11 @@ func (m *Manager) RegisterNode(ctx context.Context, node *Node) error {
 // GetNode 获取节点信息
 func (m *Manager) GetNode(ctx context.Context, nodeID string) (*Node, error) {
 	// 尝试所有可能的节点类型
-	types := []string{"mpc-participant", "mpc-coordinator", "mpc-client"}
+	types := []string{"mpc-signer", "mpc-service", "mpc-client"}
 
 	// 优化：根据 ID 前缀猜测类型
 	if strings.HasPrefix(nodeID, "client-") {
-		types = []string{"mpc-client", "mpc-participant", "mpc-coordinator"}
+		types = []string{"mpc-client", "mpc-signer", "mpc-service"}
 	}
 
 	for _, serviceName := range types {
@@ -158,7 +158,7 @@ func (m *Manager) ListNodes(ctx context.Context, filter *storage.NodeFilter) ([]
 	if filter != nil && filter.NodeType != "" {
 		serviceNames = []string{fmt.Sprintf("mpc-%s", filter.NodeType)}
 	} else {
-		serviceNames = []string{"mpc-participant", "mpc-coordinator", "mpc-client"}
+		serviceNames = []string{"mpc-signer", "mpc-service", "mpc-client"}
 	}
 
 	var allNodes []*Node

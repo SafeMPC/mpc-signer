@@ -23,8 +23,8 @@ import (
 	"time"
 
 	"github.com/fxamacker/cbor/v2"
-	infrav1 "github.com/kashguard/go-mpc-infra/pb/infra/v1"
-	mpcv1 "github.com/kashguard/go-mpc-infra/pb/mpc/v1"
+	infrav1 "github.com/SafeMPC/mpc-signer/pb/infra/v1"
+	mpcv1 "github.com/SafeMPC/mpc-signer/pb/mpc/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"

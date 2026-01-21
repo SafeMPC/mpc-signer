@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/go-openapi/swag"
-	"github.com/kashguard/go-mpc-infra/internal/test"
+	"github.com/SafeMPC/mpc-signer/internal/test"
 	"github.com/stretchr/testify/assert"
 )
 

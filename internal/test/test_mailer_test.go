@@ -3,9 +3,9 @@ package test_test
 import (
 	"testing"
 
-	"github.com/kashguard/go-mpc-infra/internal/mailer/transport"
-	"github.com/kashguard/go-mpc-infra/internal/test"
-	"github.com/kashguard/go-mpc-infra/internal/test/fixtures"
+	"github.com/SafeMPC/mpc-signer/internal/mailer/transport"
+	"github.com/SafeMPC/mpc-signer/internal/test"
+	"github.com/SafeMPC/mpc-signer/internal/test/fixtures"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

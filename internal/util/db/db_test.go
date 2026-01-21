@@ -8,9 +8,9 @@ import (
 	"github.com/aarondl/null/v8"
 	"github.com/aarondl/sqlboiler/v4/boil"
 	"github.com/aarondl/sqlboiler/v4/types"
-	"github.com/kashguard/go-mpc-infra/internal/models"
-	"github.com/kashguard/go-mpc-infra/internal/test"
-	"github.com/kashguard/go-mpc-infra/internal/util/db"
+	"github.com/SafeMPC/mpc-signer/internal/models"
+	"github.com/SafeMPC/mpc-signer/internal/test"
+	"github.com/SafeMPC/mpc-signer/internal/util/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

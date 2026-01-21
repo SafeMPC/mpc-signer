@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kashguard/go-mpc-infra/internal/infra/key"
-	"github.com/kashguard/go-mpc-infra/internal/infra/session"
-	"github.com/kashguard/go-mpc-infra/internal/mpc/node"
-	"github.com/kashguard/go-mpc-infra/internal/mpc/protocol"
+	"github.com/SafeMPC/mpc-signer/internal/infra/key"
+	"github.com/SafeMPC/mpc-signer/internal/infra/session"
+	"github.com/SafeMPC/mpc-signer/internal/mpc/node"
+	"github.com/SafeMPC/mpc-signer/internal/mpc/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -135,7 +135,7 @@ func TestService_ThresholdSign_2of3_ServerNodesOnly(t *testing.T) {
 		},
 	}
 
-	mockNodeDiscovery.On("DiscoverNodes", ctx, node.NodeTypeParticipant, node.NodeStatusActive, 3).Return(serverNodes, nil)
+	mockNodeDiscovery.On("DiscoverNodes", ctx, node.NodeTypeSigner, node.NodeStatusActive, 3).Return(serverNodes, nil)
 
 	// 设置协议引擎
 	mockProtocolEngine.On("DefaultProtocol").Return("gg20")
@@ -146,7 +146,7 @@ func TestService_ThresholdSign_2of3_ServerNodesOnly(t *testing.T) {
 	// 完整的测试应该在集成测试中完成
 
 	// 验证节点发现被调用（应该只选择服务器节点）
-	mockNodeDiscovery.AssertCalled(t, "DiscoverNodes", ctx, node.NodeTypeParticipant, node.NodeStatusActive, 3)
+	mockNodeDiscovery.AssertCalled(t, "DiscoverNodes", ctx, node.NodeTypeSigner, node.NodeStatusActive, 3)
 
 	// 验证会话中的参与节点只包含服务器节点（2-of-3模式）
 	assert.Contains(t, signingSession.ParticipatingNodes, "server-proxy-1")

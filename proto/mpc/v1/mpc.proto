@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package mpc.v1;
 
-option go_package = "github.com/kashguard/go-mpc-infra/pb/mpc/v1;mpc";
+option go_package = "github.com/SafeMPC/mpc-service/pb/mpc/v1;mpc";
 
 // MPC核心服务定义
 service MPCNode {
@@ -15,8 +15,8 @@ service MPCNode {
   // 启动签名（由协调者调用参与者）
   rpc StartSign(StartSignRequest) returns (StartSignResponse);
 
-  // 启动密钥轮换（Resharing）（由协调者调用参与者）
-  rpc StartResharing(StartResharingRequest) returns (StartResharingResponse);
+  // 启动密钥轮换（Resharing）（Phase 2）
+  // rpc StartResharing(StartResharingRequest) returns (StartResharingResponse);
 
   // 心跳检测
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
@@ -33,20 +33,14 @@ service MPCCoordinator {
   rpc AggregateSignatures(AggregateRequest) returns (AggregateResponse);
 }
 
-// MPC管理服务
-service MPCManagement {
-  // 设置签名策略
-  rpc SetSigningPolicy(SetSigningPolicyRequest) returns (SetSigningPolicyResponse);
-  // 获取签名策略
-  rpc GetSigningPolicy(GetSigningPolicyRequest) returns (GetSigningPolicyResponse);
-
-  // 添加用户 Passkey 公钥
-  rpc AddPasskey(AddPasskeyRequest) returns (AddPasskeyResponse);
-
-  // 钱包成员管理
-  rpc AddWalletMember(AddWalletMemberRequest) returns (AddWalletMemberResponse);
-  rpc RemoveWalletMember(RemoveWalletMemberRequest) returns (RemoveWalletMemberResponse);
-}
+// MPC管理服务（Phase 2 - 团队管理功能）
+// service MPCManagement {
+//   rpc SetSigningPolicy(SetSigningPolicyRequest) returns (SetSigningPolicyResponse);
+//   rpc GetSigningPolicy(GetSigningPolicyRequest) returns (GetSigningPolicyResponse);
+//   rpc AddPasskey(AddPasskeyRequest) returns (AddPasskeyResponse);
+//   rpc AddWalletMember(AddWalletMemberRequest) returns (AddWalletMemberResponse);
+//   rpc RemoveWalletMember(RemoveWalletMemberRequest) returns (RemoveWalletMemberResponse);
+// }
 
 // 基础消息类型
 

@@ -3,7 +3,7 @@
 if [ "$1" = "--up" ]; then
     docker compose up --no-start
     docker compose start # ensure we are started, handle also allowed to be consumed by vscode
-    docker compose exec coordinator bash
+    docker compose exec server-signer-p2 bash
 fi
 
 if [ "$1" = "--halt" ]; then
@@ -11,7 +11,7 @@ if [ "$1" = "--halt" ]; then
 fi
 
 if [ "$1" = "--rebuild" ]; then
-    docker compose up -d --force-recreate --no-deps --build coordinator server-proxy-1 server-proxy-2 server-backup-1
+    docker compose up -d --force-recreate --no-deps --build server-signer-p2
 fi
 
 if [ "$1" = "--destroy" ]; then

@@ -4,7 +4,7 @@ import (
 	"database/sql"
 
 	"github.com/dropbox/godropbox/time2"
-	"github.com/kashguard/go-mpc-infra/internal/config"
+	"github.com/SafeMPC/mpc-signer/internal/config"
 )
 
 type Service struct {

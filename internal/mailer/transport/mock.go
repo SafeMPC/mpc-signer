@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/jordan-wright/email"
-	"github.com/kashguard/go-mpc-infra/internal/util"
+	"github.com/SafeMPC/mpc-signer/internal/util"
 )
 
 const defaultWaitTimeout = time.Second * 10
