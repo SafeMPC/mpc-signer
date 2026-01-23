@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
-	"github.com/dropbox/godropbox/time2"
 	"github.com/SafeMPC/mpc-signer/internal/config"
 	"github.com/SafeMPC/mpc-signer/internal/data/dto"
 	"github.com/SafeMPC/mpc-signer/internal/data/local"
@@ -16,11 +16,11 @@ import (
 	"github.com/SafeMPC/mpc-signer/internal/metrics"
 	"github.com/SafeMPC/mpc-signer/internal/push"
 	"github.com/SafeMPC/mpc-signer/internal/util"
+	"github.com/dropbox/godropbox/time2"
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog/log"
 
 	// MPC imports
-	"github.com/SafeMPC/mpc-signer/internal/infra/coordinator"
 	"github.com/SafeMPC/mpc-signer/internal/infra/discovery"
 	// infra_grpc "github.com/SafeMPC/mpc-signer/internal/infra/grpc" // 已删除
 	"github.com/SafeMPC/mpc-signer/internal/infra/key"
@@ -69,18 +69,17 @@ type Server struct {
 	Metrics *metrics.Service
 
 	// MPC services
-	KeyService         *key.Service
-	SigningService     *signing.Service
-	CoordinatorService *coordinator.Service
-	NodeManager        *node.Manager
-	NodeRegistry       *node.Registry
-	NodeDiscovery      *node.Discovery
-	SessionManager     *session.Manager
-	DiscoveryService   *discovery.Service // ✅ 新的统一服务发现
+	KeyService       *key.Service
+	SigningService   *signing.Service
+	NodeManager      *node.Manager
+	NodeRegistry     *node.Registry
+	NodeDiscovery    *node.Discovery
+	SessionManager   *session.Manager
+	DiscoveryService *discovery.Service // ✅ 新的统一服务发现
 
 	// gRPC services (unified MPC gRPC)
-	MPCGRPCServer   *mpcgrpc.GRPCServer              // MPC gRPC 服务端（统一实现）
-	MPCGRPCClient   *mpcgrpc.GRPCClient              // MPC gRPC 客户端（用于节点间通信）
+	MPCGRPCServer *mpcgrpc.GRPCServer // MPC gRPC 服务端（统一实现）
+	MPCGRPCClient *mpcgrpc.GRPCClient // MPC gRPC 客户端（用于节点间通信）
 	// InfraGRPCServer *infra_grpc.InfrastructureServer // Infrastructure gRPC Server (Application Layer) // 已删除
 }
 
@@ -99,7 +98,6 @@ func newServerWithComponents(
 	metrics *metrics.Service,
 	keyService *key.Service,
 	signingService *signing.Service,
-	coordinatorService *coordinator.Service,
 	nodeManager *node.Manager,
 	nodeRegistry *node.Registry,
 	nodeDiscovery *node.Discovery,
@@ -120,13 +118,12 @@ func newServerWithComponents(
 		Local:   local,
 		Metrics: metrics,
 
-		KeyService:         keyService,
-		SigningService:     signingService,
-		CoordinatorService: coordinatorService,
-		NodeManager:        nodeManager,
-		NodeRegistry:       nodeRegistry,
-		NodeDiscovery:      nodeDiscovery,
-		SessionManager:     sessionManager,
+		KeyService:     keyService,
+		SigningService: signingService,
+		NodeManager:    nodeManager,
+		NodeRegistry:   nodeRegistry,
+		NodeDiscovery:  nodeDiscovery,
+		SessionManager: sessionManager,
 
 		MPCGRPCServer:    mpcGRPCServer,    // ✅ 统一的 MPC gRPC 服务端
 		MPCGRPCClient:    mpcGRPCClient,    // ✅ 统一的 MPC gRPC 客户端
@@ -164,6 +161,23 @@ func NewServer(config config.Server) *Server {
 }
 
 func (s *Server) Ready() bool {
+	// Signer 节点不需要 REST API（Echo/Router），只检查必需的组件
+	// 使用自定义检查，跳过 Echo 和 Router
+	if s.Config.MPC.NodeType == "signer" {
+		// Signer 节点只需要 gRPC 服务器和 MPC 服务
+		if s.MPCGRPCServer == nil {
+			log.Debug().Msg("MPC gRPC server is not initialized")
+			return false
+		}
+		// 其他必需组件检查
+		if s.DB == nil || s.KeyService == nil || s.SigningService == nil {
+			log.Debug().Msg("Required MPC services are not initialized")
+			return false
+		}
+		return true
+	}
+
+	// Service 节点需要完整的初始化（包括 Echo 和 Router）
 	if err := util.IsStructInitialized(s); err != nil {
 		log.Debug().Err(err).Msg("Server is not fully initialized")
 		return false
@@ -181,18 +195,33 @@ func (s *Server) Start() error {
 
 	// 1. 注册节点到服务发现（Consul）
 	if s.DiscoveryService != nil && s.Config.MPC.NodeID != "" {
-		// ✅ 在 docker-compose 网络中使用可解析的主机名：
-		// coordinator 使用服务名 "coordinator"（避免使用 nodeID: coordinator-1 导致无法解析）
-		// participants 的 nodeID 与服务名一致（participant-1/2/3），可直接使用
-		serviceHost := s.Config.MPC.NodeID
-		if s.Config.MPC.NodeType == "coordinator" {
-			serviceHost = "coordinator"
+		// ✅ 确定注册地址：
+		// 1. 如果配置了 MPC_REGISTER_ADDRESS，使用配置的地址（用于跨网络部署）
+		// 2. 否则，在 docker-compose 网络中使用可解析的主机名：
+		//    - coordinator 使用服务名 "coordinator"
+		//    - signer 使用 nodeID（如果与服务名一致）
+		var serviceHost string
+		if s.Config.MPC.RegisterAddress != "" {
+			// 使用配置的注册地址（可能包含端口，需要解析）
+			if strings.Contains(s.Config.MPC.RegisterAddress, ":") {
+				parts := strings.Split(s.Config.MPC.RegisterAddress, ":")
+				serviceHost = parts[0]
+			} else {
+				serviceHost = s.Config.MPC.RegisterAddress
+			}
+		} else {
+			// 默认逻辑：使用 nodeID 或服务名
+			serviceHost = s.Config.MPC.NodeID
+			if s.Config.MPC.NodeType == "coordinator" {
+				serviceHost = "coordinator"
+			}
 		}
 
 		log.Info().
 			Str("node_id", s.Config.MPC.NodeID).
 			Str("node_type", s.Config.MPC.NodeType).
 			Str("service_host", serviceHost).
+			Str("register_address", s.Config.MPC.RegisterAddress).
 			Int("grpc_port", s.Config.MPC.GRPCPort).
 			Msg("Registering node to Consul")
 
@@ -227,26 +256,18 @@ func (s *Server) Start() error {
 			Msg("MPC gRPC server started in background")
 	}
 
-	// 3. 启动 Infrastructure gRPC 服务器（仅 Coordinator）
-	if s.Config.MPC.NodeType == "coordinator" && s.InfraGRPCServer != nil {
-		go func() {
-			grpcCtx := context.Background()
-			if err := s.InfraGRPCServer.Start(grpcCtx); err != nil {
-				log.Error().Err(err).Msg("Infrastructure gRPC server failed")
-			}
-		}()
-		log.Info().
-			Str("node_type", s.Config.MPC.NodeType).
-			Msg("Infrastructure gRPC server started in background")
-	} else if s.InfraGRPCServer != nil {
-		log.Info().
-			Str("node_type", s.Config.MPC.NodeType).
-			Msg("Infrastructure gRPC server skipped (not coordinator)")
-	}
+	// Infrastructure gRPC 服务器已删除（团队签功能已移除）
 
-	// 4. 启动 HTTP 服务器
-	if err := s.Echo.Start(s.Config.Echo.ListenAddress); err != nil {
-		return fmt.Errorf("failed to start echo server: %w", err)
+	// 4. 启动 HTTP 服务器（仅 Service 节点需要）
+	if s.Config.MPC.NodeType != "signer" && s.Echo != nil {
+		if err := s.Echo.Start(s.Config.Echo.ListenAddress); err != nil {
+			return fmt.Errorf("failed to start echo server: %w", err)
+		}
+	} else if s.Config.MPC.NodeType == "signer" {
+		// Signer 节点只需要 gRPC 服务器，阻塞等待直到收到停止信号
+		log.Info().Msg("Signer node started (gRPC only, no REST API)")
+		// 使用 select 阻塞，等待 context 取消或信号
+		<-ctx.Done()
 	}
 
 	return nil

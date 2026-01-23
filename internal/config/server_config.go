@@ -113,7 +113,8 @@ type MPC struct {
 	KeyShareEncryptionKey string
 
 	// 服务发现配置
-	ConsulAddress string
+	ConsulAddress   string
+	RegisterAddress string // 注册到 Consul 的地址（用于跨网络部署）
 
 	// 协议配置
 	SupportedProtocols []string
@@ -313,6 +314,7 @@ func DefaultServiceConfigFromEnv() Server {
 			KeyShareStoragePath:   util.GetEnv("MPC_KEY_SHARE_STORAGE_PATH", filepath.Join(util.GetProjectRootDir(), "/var/lib/mpc/key-shares")),
 			KeyShareEncryptionKey: util.GetEnv("MPC_KEY_SHARE_ENCRYPTION_KEY", ""),
 			ConsulAddress:         util.GetEnv("MPC_CONSUL_ADDRESS", "localhost:8500"),
+			RegisterAddress:       util.GetEnv("MPC_REGISTER_ADDRESS", ""), // 如果为空，使用默认逻辑
 			SupportedProtocols:    util.GetEnvAsStringArr("MPC_SUPPORTED_PROTOCOLS", []string{"gg18", "gg20", "frost"}),
 			DefaultProtocol:       util.GetEnv("MPC_DEFAULT_PROTOCOL", "gg20"),
 			HTTPPort:              util.GetEnvAsInt("MPC_HTTP_PORT", 8080),

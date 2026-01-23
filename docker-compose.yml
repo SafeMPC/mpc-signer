@@ -44,6 +44,7 @@ services:
       MPC_NODE_ID: "server-signer-p2"
       MPC_SERVICE_ENDPOINT: "host.docker.internal:9090"  # 连接到 mpc-service
       MPC_CONSUL_ADDRESS: "host.docker.internal:8500"    # 连接到 mpc-service 的 Consul
+      MPC_REGISTER_ADDRESS: "host.docker.internal"       # 注册到 Consul 的地址（Service 可以访问）
       MPC_STORAGE_BACKEND: "postgresql"
       MPC_REDIS_ENDPOINT: "host.docker.internal:6379"    # 连接到 mpc-service 的 Redis
       MPC_KEY_SHARE_STORAGE_PATH: "/app/var/lib/mpc/key-shares"
@@ -54,7 +55,7 @@ services:
       SERVER_ECHO_BASE_URL: "http://localhost:8081"
       MPC_HTTP_PORT: "8081"
       MPC_GRPC_PORT: "9091"
-      MPC_TLS_ENABLED: "false"  # 开发环境暂时禁用 TLS
+      MPC_TLS_ENABLED: "true"  # 启用 mTLS 证书认证
       MPC_TLS_CERT_FILE: "/app/certs/server.crt"
       MPC_TLS_KEY_FILE: "/app/certs/server.key"
       MPC_TLS_CA_CERT_FILE: "/app/certs/ca.crt"
