@@ -43,8 +43,9 @@ services:
       MPC_NODE_TYPE: "signer"
       MPC_NODE_ID: "server-signer-p2"
       MPC_SERVICE_ENDPOINT: "host.docker.internal:9090"  # 连接到 mpc-service
+      MPC_SERVICE_ADDR: "host.docker.internal:9090"      # Signer 上报结果/管理面调用的地址（ManagementService）
       MPC_CONSUL_ADDRESS: "host.docker.internal:8500"    # 连接到 mpc-service 的 Consul
-      MPC_REGISTER_ADDRESS: "host.docker.internal"       # 注册到 Consul 的地址（Service 可以访问）
+      MPC_REGISTER_ADDRESS: "192.168.111.183"           # 注册到 Consul 的地址（真机/Service 可访问）
       MPC_STORAGE_BACKEND: "postgresql"
       MPC_REDIS_ENDPOINT: "host.docker.internal:6379"    # 连接到 mpc-service 的 Redis
       MPC_KEY_SHARE_STORAGE_PATH: "/app/var/lib/mpc/key-shares"
@@ -55,7 +56,7 @@ services:
       SERVER_ECHO_BASE_URL: "http://localhost:8081"
       MPC_HTTP_PORT: "8081"
       MPC_GRPC_PORT: "9091"
-      MPC_TLS_ENABLED: "true"  # 启用 mTLS 证书认证
+      MPC_TLS_ENABLED: "false" # 本地/移动端直连测试：关闭 TLS（iOS 使用 insecure gRPC）
       MPC_TLS_CERT_FILE: "/app/certs/server.crt"
       MPC_TLS_KEY_FILE: "/app/certs/server.key"
       MPC_TLS_CA_CERT_FILE: "/app/certs/ca.crt"
@@ -76,6 +77,8 @@ services:
         sudo chown -R development:development /app/api/tmp
         sudo chown -R development:development /app/bin
         sudo chown -R development:development /app/tmp
+        sudo mkdir -p /app/var/lib/mpc/key-shares
+        sudo chown -R development:development /app/var/lib/mpc/key-shares
         chmod +x /app/rksh
         git config --global --add safe.directory /app
         # 首次启动需要构建
@@ -86,7 +89,7 @@ services:
         # 启动应用，如果失败则保持容器运行
         /app/bin/app server || while sleep 1000; do :; done
     healthcheck:
-      test: ["CMD", "curl", "-f", "-s", "http://localhost:8081/-/healthy?mgmt-secret=mgmtpass"]
+      test: ["CMD-SHELL", "bash -lc 'echo > /dev/tcp/127.0.0.1/9091'"]
       interval: 10s
       timeout: 5s
       retries: 3
