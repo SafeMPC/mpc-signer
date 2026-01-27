@@ -3,8 +3,8 @@ package local
 import (
 	"database/sql"
 
-	"github.com/dropbox/godropbox/time2"
 	"github.com/SafeMPC/mpc-signer/internal/config"
+	"github.com/dropbox/godropbox/time2"
 )
 
 type Service struct {

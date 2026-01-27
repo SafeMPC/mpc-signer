@@ -18,6 +18,8 @@ type Session struct {
 	CompletedAt        *time.Time
 	DurationMs         int
 	ExpiresAt          time.Time
+	ErrorMessage       string // 会话失败时的错误信息
+	ClientPublicKey    string // Client (P1) 的 Passkey 公钥（hex，用于验证 E2E 签名）
 }
 
 // SessionStatus 会话状态

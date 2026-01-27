@@ -137,3 +137,49 @@ func VerifyAdminPasskey(adminAuth interface{}, requestHash []byte) error {
 	expectedChallenge := base64.RawURLEncoding.EncodeToString(requestHash)
 	return VerifyPasskeySignature(publicKey, signature, authData, clientDataJSON, expectedChallenge)
 }
+
+// VerifyPasskeyMessageSignature 验证 Client 对协议消息的 Passkey 签名（E2E 认证）
+// publicKeyHex: Client 的 Passkey 公钥 (Hex 编码，COSE Key Format)
+// signature: Client 使用 Passkey 私钥对消息的签名 (Raw bytes)
+// sessionID, fromNodeID, toNodeID: 会话和节点信息
+// messageData: 协议消息数据 (Raw bytes)
+// round, isBroadcast, timestamp: 消息元数据
+// 签名数据格式: session_id|from_node_id|to_node_id|message_data_hex|round|is_broadcast|timestamp
+func VerifyPasskeyMessageSignature(
+	publicKeyHex string,
+	signature []byte,
+	sessionID, fromNodeID, toNodeID string,
+	messageData []byte,
+	round int32,
+	isBroadcast bool,
+	timestamp string,
+) error {
+	// 1. 解析公钥
+	publicKeyBytes, err := hex.DecodeString(publicKeyHex)
+	if err != nil {
+		return fmt.Errorf("invalid public key hex: %w", err)
+	}
+
+	pubKey, err := webauthncose.ParsePublicKey(publicKeyBytes)
+	if err != nil {
+		return fmt.Errorf("failed to parse public key: %w", err)
+	}
+
+	// 2. 构建待签名数据（与 Client 端保持一致）
+	data := fmt.Sprintf("%s|%s|%s|%x|%d|%v|%s",
+		sessionID, fromNodeID, toNodeID, messageData, round, isBroadcast, timestamp)
+
+	// 3. 计算数据的 SHA256 哈希（Passkey 通常对哈希签名）
+	dataHash := sha256.Sum256([]byte(data))
+
+	// 4. 验证签名
+	valid, err := webauthncose.VerifySignature(pubKey, dataHash[:], signature)
+	if err != nil {
+		return fmt.Errorf("error verifying signature: %w", err)
+	}
+	if !valid {
+		return fmt.Errorf("invalid signature")
+	}
+
+	return nil
+}

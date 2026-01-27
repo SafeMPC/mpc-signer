@@ -6,12 +6,11 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/google/uuid"
-	"github.com/SafeMPC/mpc-signer/internal/infra/backup"
 	"github.com/SafeMPC/mpc-signer/internal/infra/storage"
 	"github.com/SafeMPC/mpc-signer/internal/mpc/chain"
 	"github.com/SafeMPC/mpc-signer/internal/mpc/protocol"
+	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
@@ -22,7 +21,6 @@ type Service struct {
 	keyShareStorage   storage.KeyShareStorage
 	protocolEngine    protocol.Engine
 	dkgService        *DKGService
-	backupService     backup.SSSBackupService
 	derivationService *DerivationService
 }
 
@@ -32,14 +30,12 @@ func NewService(
 	keyShareStorage storage.KeyShareStorage,
 	protocolEngine protocol.Engine,
 	dkgService *DKGService,
-	backupService backup.SSSBackupService,
 ) *Service {
 	return &Service{
 		metadataStore:     metadataStore,
 		keyShareStorage:   keyShareStorage,
 		protocolEngine:    protocolEngine,
 		dkgService:        dkgService,
-		backupService:     backupService,
 		derivationService: NewDerivationService(),
 	}
 }
@@ -351,55 +347,7 @@ func (s *Service) CreateRootKey(ctx context.Context, req *CreateRootKeyRequest) 
 		return nil, errors.Wrap(err, "failed to update root key metadata")
 	}
 
-	// 集成 SSS 备份服务：对每个 MPC 分片分别进行 SSS 备份
-	if s.backupService != nil {
-		backupStorage, ok := s.metadataStore.(storage.BackupShareStorage)
-		if !ok {
-			log.Warn().Msg("MetadataStore does not implement BackupShareStorage, skipping SSS backup")
-		} else {
-			for nodeID, mpcShare := range dkgResp.KeyShares {
-				// 对单个MPC分片进行SSS备份（不是完整密钥）
-				backupShares, err := s.backupService.GenerateBackupShares(ctx, mpcShare.Share, 3, 5)
-				if err != nil {
-					log.Error().
-						Err(err).
-						Str("key_id", keyID).
-						Str("node_id", nodeID).
-						Msg("Failed to generate backup shares for MPC share")
-					// 继续处理其他分片，不中断流程
-					continue
-				}
-
-				log.Info().
-					Str("key_id", keyID).
-					Str("node_id", nodeID).
-					Int("generated_shares", len(backupShares)).
-					Msg("Generated SSS backup shares for MPC share")
-
-				// 存储备份分片
-				for i, backupShare := range backupShares {
-					shareIndex := i + 1
-
-					// 保存备份分片到存储
-					if err := backupStorage.SaveBackupShare(ctx, keyID, nodeID, shareIndex, backupShare.ShareData); err != nil {
-						log.Error().
-							Err(err).
-							Str("key_id", keyID).
-							Str("node_id", nodeID).
-							Int("share_index", shareIndex).
-							Msg("Failed to save backup share")
-						// 继续处理其他备份分片
-						continue
-					}
-					log.Info().
-						Str("key_id", keyID).
-						Str("node_id", nodeID).
-						Int("share_index", shareIndex).
-						Msg("Saved SSS backup share")
-				}
-			}
-		}
-	}
+	// 备份功能已删除
 
 	return rootKeyMetadata, nil
 }

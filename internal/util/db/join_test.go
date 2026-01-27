@@ -4,13 +4,13 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/aarondl/null/v8"
-	"github.com/aarondl/sqlboiler/v4/queries"
-	"github.com/aarondl/sqlboiler/v4/queries/qm"
 	"github.com/SafeMPC/mpc-signer/internal/models"
 	"github.com/SafeMPC/mpc-signer/internal/test"
 	"github.com/SafeMPC/mpc-signer/internal/test/fixtures"
 	"github.com/SafeMPC/mpc-signer/internal/util/db"
+	"github.com/aarondl/null/v8"
+	"github.com/aarondl/sqlboiler/v4/queries"
+	"github.com/aarondl/sqlboiler/v4/queries/qm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

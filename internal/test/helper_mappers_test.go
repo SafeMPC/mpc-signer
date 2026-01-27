@@ -3,8 +3,8 @@ package test_test
 import (
 	"testing"
 
-	"github.com/go-openapi/swag"
 	"github.com/SafeMPC/mpc-signer/internal/test"
+	"github.com/go-openapi/swag"
 	"github.com/stretchr/testify/assert"
 )
 

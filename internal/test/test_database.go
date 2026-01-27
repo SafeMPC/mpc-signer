@@ -12,13 +12,13 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/aarondl/sqlboiler/v4/boil"
-	"github.com/allaboutapps/integresql-client-go"
-	"github.com/allaboutapps/integresql-client-go/pkg/util"
 	"github.com/SafeMPC/mpc-signer/internal/config"
 	"github.com/SafeMPC/mpc-signer/internal/test/fixtures"
 	pUtil "github.com/SafeMPC/mpc-signer/internal/util"
 	dbutil "github.com/SafeMPC/mpc-signer/internal/util/db"
+	"github.com/aarondl/sqlboiler/v4/boil"
+	"github.com/allaboutapps/integresql-client-go"
+	"github.com/allaboutapps/integresql-client-go/pkg/util"
 	"github.com/pkg/errors"
 	migrate "github.com/rubenv/sql-migrate"
 )

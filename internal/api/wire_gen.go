@@ -8,11 +8,11 @@ package api
 
 import (
 	"database/sql"
-	"github.com/google/wire"
 	"github.com/SafeMPC/mpc-signer/internal/auth"
 	"github.com/SafeMPC/mpc-signer/internal/config"
 	"github.com/SafeMPC/mpc-signer/internal/data/local"
 	"github.com/SafeMPC/mpc-signer/internal/metrics"
+	"github.com/google/wire"
 	"testing"
 )
 
@@ -65,8 +65,7 @@ func InitNewServer(server config.Server) (*Server, error) {
 	engine := NewProtocolEngine(server, grpcClient, keyShareStorage)
 	discovery := NewNodeDiscovery(manager, discoveryService)
 	dkgService := NewDKGServiceProvider(metadataStore, keyShareStorage, engine, manager, discovery, grpcClient, server)
-	sssBackupService := NewBackupService(metadataStore)
-	keyService := NewKeyServiceProvider(metadataStore, keyShareStorage, engine, dkgService, sssBackupService)
+	keyService := NewKeyServiceProvider(metadataStore, keyShareStorage, engine, dkgService)
 	client, err := NewRedisClient(server)
 	if err != nil {
 		return nil, err
@@ -75,14 +74,11 @@ func InitNewServer(server config.Server) (*Server, error) {
 	sessionManager := NewSessionManager(metadataStore, sessionStore, server)
 	signingService := NewSigningServiceProvider(keyService, engine, sessionManager, discovery, server, grpcClient)
 	registry := NewNodeRegistry(manager)
-	grpcServer, err := NewMPCGRPCServer(server, engine, sessionManager, keyShareStorage, grpcClient, metadataStore, sssBackupService)
+	grpcServer, err := NewMPCGRPCServer(server, engine, sessionManager, keyShareStorage, grpcClient, metadataStore)
 	if err != nil {
 		return nil, err
 	}
-	recoveryService := NewRecoveryService(metadataStore, keyShareStorage, sssBackupService)
-	store := NewBackupStore(metadataStore)
-	infrastructureServer := NewInfrastructureServer(server, keyService, signingService, sssBackupService, recoveryService, store, manager)
-	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService, keyService, signingService, manager, registry, discovery, sessionManager, grpcServer, grpcClient, discoveryService, infrastructureServer)
+	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService, keyService, signingService, manager, registry, discovery, sessionManager, grpcServer, grpcClient, discoveryService)
 	return apiServer, nil
 }
 
@@ -125,8 +121,7 @@ func InitNewServerWithDB(server config.Server, db *sql.DB, t ...*testing.T) (*Se
 	engine := NewProtocolEngine(server, grpcClient, keyShareStorage)
 	discovery := NewNodeDiscovery(manager, discoveryService)
 	dkgService := NewDKGServiceProvider(metadataStore, keyShareStorage, engine, manager, discovery, grpcClient, server)
-	sssBackupService := NewBackupService(metadataStore)
-	keyService := NewKeyServiceProvider(metadataStore, keyShareStorage, engine, dkgService, sssBackupService)
+	keyService := NewKeyServiceProvider(metadataStore, keyShareStorage, engine, dkgService)
 	client, err := NewRedisClient(server)
 	if err != nil {
 		return nil, err
@@ -135,14 +130,11 @@ func InitNewServerWithDB(server config.Server, db *sql.DB, t ...*testing.T) (*Se
 	sessionManager := NewSessionManager(metadataStore, sessionStore, server)
 	signingService := NewSigningServiceProvider(keyService, engine, sessionManager, discovery, server, grpcClient)
 	registry := NewNodeRegistry(manager)
-	grpcServer, err := NewMPCGRPCServer(server, engine, sessionManager, keyShareStorage, grpcClient, metadataStore, sssBackupService)
+	grpcServer, err := NewMPCGRPCServer(server, engine, sessionManager, keyShareStorage, grpcClient, metadataStore)
 	if err != nil {
 		return nil, err
 	}
-	recoveryService := NewRecoveryService(metadataStore, keyShareStorage, sssBackupService)
-	store := NewBackupStore(metadataStore)
-	infrastructureServer := NewInfrastructureServer(server, keyService, signingService, sssBackupService, recoveryService, store, manager)
-	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService, keyService, signingService, manager, registry, discovery, sessionManager, grpcServer, grpcClient, discoveryService, infrastructureServer)
+	apiServer := newServerWithComponents(server, db, mailer, service, i18nService, clock, authService, localService, metricsService, keyService, signingService, manager, registry, discovery, sessionManager, grpcServer, grpcClient, discoveryService)
 	return apiServer, nil
 }
 
@@ -181,9 +173,4 @@ var mpcServiceSet = wire.NewSet(
 	NewSigningServiceProvider,
 
 	NewMPCDiscoveryService,
-
-	NewBackupService,
-	NewRecoveryService,
-	NewBackupStore,
-	NewInfrastructureServer,
 )

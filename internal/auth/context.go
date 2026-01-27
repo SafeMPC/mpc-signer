@@ -3,9 +3,9 @@ package auth
 import (
 	"context"
 
-	"github.com/go-openapi/swag"
 	"github.com/SafeMPC/mpc-signer/internal/data/dto"
 	"github.com/SafeMPC/mpc-signer/internal/util"
+	"github.com/go-openapi/swag"
 	"github.com/labstack/echo/v4"
 )
 

@@ -11,7 +11,6 @@ import (
 	"github.com/SafeMPC/mpc-signer/cmd/db"
 	"github.com/SafeMPC/mpc-signer/cmd/probe"
 	"github.com/SafeMPC/mpc-signer/internal/api"
-	"github.com/SafeMPC/mpc-signer/internal/api/router"
 	"github.com/SafeMPC/mpc-signer/internal/config"
 	"github.com/SafeMPC/mpc-signer/internal/util"
 	"github.com/SafeMPC/mpc-signer/internal/util/command"
@@ -78,10 +77,7 @@ func runServer(flags Flags) {
 			}
 		}
 
-		err := router.Init(s)
-		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to initialize router")
-		}
+		// Signer 节点不需要 REST API router（只有 gRPC 服务）
 
 		go func() {
 			if err := s.Start(); err != nil {

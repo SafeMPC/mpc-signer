@@ -4,116 +4,34 @@ package mpc.v1;
 
 option go_package = "github.com/SafeMPC/mpc-service/pb/mpc/v1;mpc";
 
-// MPC核心服务定义
-service MPCNode {
-  // 提交协议消息
-  rpc SubmitProtocolMessage(SubmitProtocolMessageRequest) returns (SubmitProtocolMessageResponse);
+// MPC 消息类型定义
+// 注意：此文件只定义消息类型，不定义 service
+// 所有 service 定义在 signer.proto 中
 
-  // 启动 DKG（由协调者调用参与者）
-  rpc StartDKG(StartDKGRequest) returns (StartDKGResponse);
+// ============================================
+// 协议消息相关
+// ============================================
 
-  // 启动签名（由协调者调用参与者）
-  rpc StartSign(StartSignRequest) returns (StartSignResponse);
-
-  // 启动密钥轮换（Resharing）（Phase 2）
-  // rpc StartResharing(StartResharingRequest) returns (StartResharingResponse);
-
-  // 心跳检测
-  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+// 协议消息请求
+message SubmitProtocolMessageRequest {
+  string session_id = 1;
+  string node_id = 2;
+  bytes data = 3;
+  int32 round = 4;
+  string timestamp = 5;
 }
 
-service MPCCoordinator {
-  // 创建签名会话
-  rpc CreateSigningSession(CreateSessionRequest) returns (CreateSessionResponse);
-
-  // 获取会话状态
-  rpc GetSessionStatus(SessionStatusRequest) returns (SessionStatusResponse);
-
-  // 聚合签名
-  rpc AggregateSignatures(AggregateRequest) returns (AggregateResponse);
-}
-
-// MPC管理服务（Phase 2 - 团队管理功能）
-// service MPCManagement {
-//   rpc SetSigningPolicy(SetSigningPolicyRequest) returns (SetSigningPolicyResponse);
-//   rpc GetSigningPolicy(GetSigningPolicyRequest) returns (GetSigningPolicyResponse);
-//   rpc AddPasskey(AddPasskeyRequest) returns (AddPasskeyResponse);
-//   rpc AddWalletMember(AddWalletMemberRequest) returns (AddWalletMemberResponse);
-//   rpc RemoveWalletMember(RemoveWalletMemberRequest) returns (RemoveWalletMemberResponse);
-// }
-
-// 基础消息类型
-
-// 通用的 Admin 鉴权 Token
-message AdminAuthToken {
-  string req_id = 1;               // 请求ID (防重放)
-  bytes passkey_signature = 2;     // assertion signature
-  bytes authenticator_data = 3;    // authData
-  bytes client_data_json = 4;      // clientDataJSON
-  string credential_id = 5;        // credential ID
-}
-
-// 管理相关消息
-message SetSigningPolicyRequest {
-  string key_id = 1;
-  string policy_type = 2; // "single", "team"
-  int32 min_signatures = 3;
-  repeated AdminAuthToken admin_auths = 4; // 支持多管理员签名
-  repeated string members = 5; // 允许签名的 Credential IDs
-}
-
-message SetSigningPolicyResponse {
-	bool success = 1;
-	string message = 2;
-}
-
-message GetSigningPolicyRequest {
-	string key_id = 1;
-}
-
-message GetSigningPolicyResponse {
-	string key_id = 1;
-	string policy_type = 2;
-	int32 min_signatures = 3;
-	repeated string members = 4; // 允许签名的 Credential IDs
-}
-
-message AddPasskeyRequest {
-  string credential_id = 1;      // WebAuthn Credential ID
-  string public_key = 2;         // COSE Key Format (Hex or Base64)
-  string device_name = 3;        // 设备名称
-  AdminAuthToken admin_auth = 4; // Admin 鉴权 (或用户自签名)
-}
-
-message AddPasskeyResponse {
-  bool success = 1;
+// 协议消息响应
+message SubmitProtocolMessageResponse {
+  bool accepted = 1;
   string message = 2;
+  int32 next_round = 3;
 }
 
-message AddWalletMemberRequest {
-  string wallet_id = 1;
-  string credential_id = 2;
-  string role = 3; // "admin", "member"
-  repeated AdminAuthToken admin_auths = 4; // 支持多管理员签名
-}
-
-message AddWalletMemberResponse {
-  bool success = 1;
-  string message = 2;
-}
-
-message RemoveWalletMemberRequest {
-  string wallet_id = 1;
-  string credential_id = 2;
-  repeated AdminAuthToken admin_auths = 3; // 支持多管理员签名
-}
-
-message RemoveWalletMemberResponse {
-  bool success = 1;
-  string message = 2;
-}
-
+// ============================================
 // 会话相关消息
+// ============================================
+
 message CreateSessionRequest {
   string key_id = 1;
   bytes message = 2;
@@ -148,23 +66,11 @@ message SessionStatusResponse {
   int32 duration_ms = 9;
 }
 
-// 协议消息请求
-message SubmitProtocolMessageRequest {
-  string session_id = 1;
-  string node_id = 2;
-  bytes data = 3;
-  int32 round = 4;
-  string timestamp = 5;
-}
+// ============================================
+// DKG 相关消息
+// ============================================
 
-// 协议消息响应
-message SubmitProtocolMessageResponse {
-  bool accepted = 1;
-  string message = 2;
-  int32 next_round = 3;
-}
-
-// 启动 DKG 请求/响应
+// 启动 DKG 请求
 message StartDKGRequest {
   string session_id = 1; // DKG 会话ID（等于 key_id）
   string key_id = 2;
@@ -173,7 +79,7 @@ message StartDKGRequest {
   int32 threshold = 5;
   int32 total_nodes = 6;
   repeated string node_ids = 7; // 参与节点列表
-  AdminAuthToken admin_auth = 8; // Admin 鉴权
+  string client_public_key = 8;  // Client (P1) 的 Passkey 公钥（hex，2-of-2 模式需要）
 }
 
 message StartDKGResponse {
@@ -181,7 +87,11 @@ message StartDKGResponse {
   string message = 2;
 }
 
-// 启动签名 请求/响应
+// ============================================
+// 签名相关消息
+// ============================================
+
+// 启动签名请求
 message StartSignRequest {
   string session_id = 1; // 签名会话ID
   string key_id = 2;
@@ -194,7 +104,7 @@ message StartSignRequest {
   string derivation_path = 9;   // 派生路径 (e.g. "m/44'/60'/0'/0/0")
   bytes parent_chain_code = 10; // 根 ChainCode，用于派生
   
-  // 鉴权令牌列表
+  // 鉴权令牌（WebAuthn）
   message AuthToken {
     bytes passkey_signature = 1;     // WebAuthn Assertion Signature
     bytes authenticator_data = 2;    // WebAuthn AuthData
@@ -202,6 +112,7 @@ message StartSignRequest {
     string credential_id = 4;        // WebAuthn Credential ID
   }
   repeated AuthToken auth_tokens = 11;
+  string client_public_key = 12;  // Client (P1) 的 Passkey 公钥（hex）
 }
 
 message StartSignResponse {
@@ -209,23 +120,10 @@ message StartSignResponse {
   string message = 2;
 }
 
-// 启动密钥轮换 请求/响应
-message StartResharingRequest {
-  string session_id = 1;      // 会话ID (通常等于 key_id)
-  string key_id = 2;          // 目标密钥ID
-  repeated string old_node_ids = 3; // 旧参与节点列表
-  repeated string new_node_ids = 4; // 新参与节点列表
-  int32 old_threshold = 5;
-  int32 new_threshold = 6;
-  AdminAuthToken admin_auth = 7; // Admin 鉴权
-}
-
-message StartResharingResponse {
-  bool started = 1;
-  string message = 2;
-}
-
+// ============================================
 // 签名聚合相关消息
+// ============================================
+
 message AggregateRequest {
   string session_id = 1;
 }
@@ -238,7 +136,10 @@ message AggregateResponse {
   string aggregated_at = 5;
 }
 
+// ============================================
 // 心跳消息
+// ============================================
+
 message HeartbeatRequest {
   string node_id = 1;
   string sent_at = 2;
@@ -247,7 +148,6 @@ message HeartbeatRequest {
 
 message HeartbeatResponse {
   bool alive = 1;
-  string coordinator_id = 2;
-  string received_at = 3;
-  map<string, string> instructions = 4;
+  string received_at = 2;
+  map<string, string> instructions = 3;
 }

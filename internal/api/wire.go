@@ -8,11 +8,11 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/google/wire"
 	"github.com/SafeMPC/mpc-signer/internal/auth"
 	"github.com/SafeMPC/mpc-signer/internal/config"
 	"github.com/SafeMPC/mpc-signer/internal/data/local"
 	"github.com/SafeMPC/mpc-signer/internal/metrics"
+	"github.com/google/wire"
 )
 
 // INJECTORS - https://github.com/google/wire/blob/main/docs/guide.md#injectors
@@ -52,13 +52,8 @@ var mpcServiceSet = wire.NewSet(
 	NewDKGServiceProvider,
 	NewKeyServiceProvider,
 	NewSigningServiceProvider,
-	NewCoordinatorServiceProvider,
 	// Service discovery
 	NewMPCDiscoveryService,
-	// Backup & Recovery & Infra
-	NewBackupService,
-	NewRecoveryService,
-	NewBackupStore,
 	// NewInfrastructureServer, // 已删除
 )
 

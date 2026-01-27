@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/SafeMPC/mpc-signer/internal/api"
-	"github.com/SafeMPC/mpc-signer/internal/api/handlers/common"
 	"github.com/SafeMPC/mpc-signer/internal/config"
 	"github.com/SafeMPC/mpc-signer/internal/util"
 	"github.com/SafeMPC/mpc-signer/internal/util/command"
@@ -79,7 +78,13 @@ func RunReadiness(ctx context.Context, config config.Server, flags ReadinessFlag
 	readinessCtx, cancel := context.WithTimeout(context.Background(), config.Management.ReadinessTimeout)
 	defer cancel()
 
-	str, errs := common.ProbeReadiness(readinessCtx, db, config.Management.ProbeWriteablePathsAbs)
+	// ProbeReadiness 功能已简化（signer 节点不需要复杂的健康检查）
+	var errs []error
+	str := "Readiness check passed"
+	if err := db.PingContext(readinessCtx); err != nil {
+		errs = append(errs, fmt.Errorf("database ping failed: %w", err))
+		str = "Readiness check failed"
+	}
 
 	if flags.Verbose {
 		log.Info().Msg(str)

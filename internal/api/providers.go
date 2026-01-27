@@ -7,13 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dropbox/godropbox/time2"
 	"github.com/SafeMPC/mpc-signer/internal/auth"
 	"github.com/SafeMPC/mpc-signer/internal/config"
 	"github.com/SafeMPC/mpc-signer/internal/i18n"
-	"github.com/SafeMPC/mpc-signer/internal/infra/backup"
-	"github.com/SafeMPC/mpc-signer/internal/infra/coordinator"
 	"github.com/SafeMPC/mpc-signer/internal/infra/discovery"
+	"github.com/dropbox/godropbox/time2"
 	// infra_grpc "github.com/SafeMPC/mpc-signer/internal/infra/grpc" // 已删除
 	"github.com/SafeMPC/mpc-signer/internal/infra/key"
 	"github.com/SafeMPC/mpc-signer/internal/infra/session"
@@ -142,7 +140,6 @@ func NewMPCGRPCServer(
 	keyShareStorage storage.KeyShareStorage,
 	grpcClient *mpcgrpc.GRPCClient,
 	metadataStore storage.MetadataStore,
-	backupService backup.SSSBackupService,
 ) (*mpcgrpc.GRPCServer, error) {
 	nodeID := cfg.MPC.NodeID
 	if nodeID == "" {
@@ -176,7 +173,7 @@ func NewMPCGRPCServer(
 	registry.Register("gg20", gg20Engine)
 	registry.Register("frost", frostEngine)
 
-	return mpcgrpc.NewGRPCServerWithRegistry(cfg, protocolEngine, registry, sessionManager, keyShareStorage, metadataStore, backupService, nodeID), nil
+	return mpcgrpc.NewGRPCServerWithRegistry(cfg, protocolEngine, registry, sessionManager, keyShareStorage, metadataStore, nodeID), nil
 }
 
 func NewProtocolEngine(cfg config.Server, grpcClient *mpcgrpc.GRPCClient, keyShareStorage storage.KeyShareStorage) protocol.Engine {
@@ -308,52 +305,16 @@ func NewDKGServiceProvider(
 	return key.NewDKGService(metadataStore, keyShareStorage, protocolEngine, registry, nodeManager, nodeDiscovery, grpcClient)
 }
 
-func NewBackupService(metadataStore storage.MetadataStore) backup.SSSBackupService {
-	backupStorage, ok := metadataStore.(storage.BackupShareStorage)
-	if !ok {
-		log.Error().Msg("MetadataStore does not implement BackupShareStorage")
-	}
-	return backup.NewService(backupStorage, metadataStore)
-}
-
-func NewRecoveryService(metadataStore storage.MetadataStore, keyShareStorage storage.KeyShareStorage, backupService backup.SSSBackupService) *backup.RecoveryService {
-	backupStorage, ok := metadataStore.(storage.BackupShareStorage)
-	if !ok {
-		log.Error().Msg("MetadataStore does not implement BackupShareStorage")
-	}
-	return backup.NewRecoveryService(backupService, backupStorage, keyShareStorage)
-}
-
-func NewBackupStore(metadataStore storage.MetadataStore) backup.Store {
-	store, ok := metadataStore.(backup.Store)
-	if !ok {
-		// This should not happen if PostgreSQLStore is used correctly
-		log.Fatal().Msg("MetadataStore does not implement backup.Store")
-	}
-	return store
-}
-
 func NewKeyServiceProvider(
 	metadataStore storage.MetadataStore,
 	keyShareStorage storage.KeyShareStorage,
 	protocolEngine protocol.Engine,
 	dkgService *key.DKGService,
-	backupService backup.SSSBackupService,
 ) *key.Service {
-	return key.NewService(metadataStore, keyShareStorage, protocolEngine, dkgService, backupService)
+	return key.NewService(metadataStore, keyShareStorage, protocolEngine, dkgService)
 }
 
-func NewInfrastructureServer(
-	cfg config.Server,
-	keyService *key.Service,
-	signingService *signing.Service,
-	backupService backup.SSSBackupService,
-	recoveryService *backup.RecoveryService,
-	store backup.Store,
-	nodeManager *node.Manager,
-) *infra_grpc.InfrastructureServer {
-	return infra_grpc.NewInfrastructureServer(&cfg, keyService, signingService, backupService, recoveryService, store, nodeManager)
-}
+// NewInfrastructureServer 已删除（团队签功能已删除）
 
 func NewSigningServiceProvider(keyService *key.Service, protocolEngine protocol.Engine, sessionManager *session.Manager, nodeDiscovery *node.Discovery, cfg config.Server, grpcClient *mpcgrpc.GRPCClient) *signing.Service {
 	defaultProtocol := cfg.MPC.DefaultProtocol
@@ -363,25 +324,7 @@ func NewSigningServiceProvider(keyService *key.Service, protocolEngine protocol.
 	return signing.NewService(keyService, protocolEngine, sessionManager, nodeDiscovery, defaultProtocol, grpcClient)
 }
 
-func NewCoordinatorServiceProvider(
-	cfg config.Server,
-	keyService *key.Service,
-	sessionManager *session.Manager,
-	nodeDiscovery *node.Discovery,
-	protocolEngine protocol.Engine,
-	grpcClient *mpcgrpc.GRPCClient,
-) *coordinator.Service {
-	// coordinator.Service 需要 GRPCClient 接口，mpcgrpc.GRPCClient 实现了该接口
-	// 记录配置的 NodeID（用于调试）
-	nodeID := cfg.MPC.NodeID
-	log.Error().
-		Str("mpc_node_id", nodeID).
-		Bool("is_empty", nodeID == "").
-		Str("mpc_node_type", cfg.MPC.NodeType).
-		Msg("NewCoordinatorServiceProvider: creating coordinator service with NodeID")
-
-	return coordinator.NewService(keyService, sessionManager, nodeDiscovery, protocolEngine, grpcClient, nodeID)
-}
+// NewCoordinatorServiceProvider 已删除（coordinator 功能已移除）
 
 // ✅ 删除旧的 internal/grpc 相关 providers（已废弃，已统一到 internal/mpc/grpc）
 // 统一使用 internal/mpc/grpc 作为唯一的 gRPC 实现

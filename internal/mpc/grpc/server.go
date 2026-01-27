@@ -2,10 +2,11 @@ package grpc
 
 import (
 	"context"
-	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
-	"sort"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/SafeMPC/mpc-signer/internal/auth"
 	"github.com/SafeMPC/mpc-signer/internal/config"
-	"github.com/SafeMPC/mpc-signer/internal/infra/backup"
 	"github.com/SafeMPC/mpc-signer/internal/infra/session"
 	"github.com/SafeMPC/mpc-signer/internal/infra/storage"
 	"github.com/SafeMPC/mpc-signer/internal/mpc/protocol"
@@ -24,9 +24,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 )
 
 // inferProtocolForDKG 根据算法和曲线推断DKG应该使用的协议
@@ -56,15 +60,13 @@ func inferProtocolForDKG(algorithm, curve string) string {
 
 // GRPCServer gRPC服务端，用于接收节点间消息
 type GRPCServer struct {
-	pb.UnimplementedMPCNodeServer
-	pb.UnimplementedMPCManagementServer
+	pb.UnimplementedSignerServiceServer
 
 	protocolEngine   protocol.Engine            // 默认协议引擎
 	protocolRegistry *protocol.ProtocolRegistry // 协议注册表（用于动态选择协议）
 	sessionManager   *session.Manager
 	keyShareStorage  storage.KeyShareStorage // 用于存储密钥分片
 	metadataStore    storage.MetadataStore   // 用于读取元数据（策略、公钥）
-	backupService    backup.SSSBackupService // 用于生成备份分片
 	nodeID           string
 	cfg              *ServerConfig
 
@@ -78,8 +80,8 @@ type GRPCServer struct {
 	// 用于确保每个签名会话只启动一次
 	signStartOnce sync.Map // map[string]*sync.Once
 
-	// 用于确保每个Resharing会话只启动一次
-	resharingStartOnce sync.Map // map[string]*sync.Once
+	// 流管理器（用于管理直连 Client）
+	streamManager *StreamManager
 }
 
 // ServerConfig gRPC服务端配置
@@ -92,6 +94,7 @@ type ServerConfig struct {
 	MaxConnAge     time.Duration
 	KeepAlive      time.Duration
 	IsGuardianNode bool // 是否作为 Guardian 节点运行
+	JWTSecret      string
 }
 
 // NewGRPCServer 创建gRPC服务端
@@ -101,10 +104,9 @@ func NewGRPCServer(
 	sessionManager *session.Manager,
 	keyShareStorage storage.KeyShareStorage,
 	metadataStore storage.MetadataStore,
-	backupService backup.SSSBackupService,
 	nodeID string,
 ) *GRPCServer {
-	return NewGRPCServerWithRegistry(cfg, protocolEngine, nil, sessionManager, keyShareStorage, metadataStore, backupService, nodeID)
+	return NewGRPCServerWithRegistry(cfg, protocolEngine, nil, sessionManager, keyShareStorage, metadataStore, nodeID)
 }
 
 // NewGRPCServerWithRegistry 创建gRPC服务端（带协议注册表）
@@ -115,7 +117,6 @@ func NewGRPCServerWithRegistry(
 	sessionManager *session.Manager,
 	keyShareStorage storage.KeyShareStorage,
 	metadataStore storage.MetadataStore,
-	backupService backup.SSSBackupService,
 	nodeID string,
 ) *GRPCServer {
 	serverCfg := &ServerConfig{
@@ -127,6 +128,7 @@ func NewGRPCServerWithRegistry(
 		MaxConnAge:     2 * time.Hour,
 		KeepAlive:      30 * time.Second,
 		IsGuardianNode: cfg.MPC.IsGuardianNode,
+		JWTSecret:      cfg.MPC.JWTSecret,
 	}
 
 	srv := &GRPCServer{
@@ -135,24 +137,56 @@ func NewGRPCServerWithRegistry(
 		sessionManager:   sessionManager,
 		keyShareStorage:  keyShareStorage,
 		metadataStore:    metadataStore,
-		backupService:    backupService,
 		nodeID:           nodeID,
 		cfg:              serverCfg,
 	}
 
+	// 绑定结果上报回调
+	if sessionManager != nil {
+		sessionManager.OnSessionCompleted = srv.reportResult
+	}
+
 	return srv
+}
+
+// SetStreamManager 设置流管理器
+func (s *GRPCServer) SetStreamManager(sm *StreamManager) {
+	s.streamManager = sm
 }
 
 // GetServerOptions 获取gRPC服务器选项
 func (s *GRPCServer) GetServerOptions() ([]grpc.ServerOption, error) {
 	var opts []grpc.ServerOption
 
-	// TLS配置
+	// TLS配置（mTLS：要求客户端证书）
 	if s.cfg.TLSEnabled {
-		creds, err := credentials.NewServerTLSFromFile(s.cfg.TLSCertFile, s.cfg.TLSKeyFile)
+		// 加载服务器证书
+		serverCert, err := tls.LoadX509KeyPair(s.cfg.TLSCertFile, s.cfg.TLSKeyFile)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to load TLS credentials")
+			return nil, errors.Wrap(err, "failed to load server TLS certificate")
 		}
+
+		// 加载 CA 证书用于验证客户端证书
+		caBytes, err := os.ReadFile(s.cfg.TLSCACertFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load TLS CA certificate")
+		}
+		caPool := x509.NewCertPool()
+		if !caPool.AppendCertsFromPEM(caBytes) {
+			return nil, errors.New("failed to append CA certificate")
+		}
+
+		// 配置 mTLS：要求并验证客户端证书
+		// 注意：暂时改为 RequestClientCert，允许没有客户端证书的连接（用于测试）
+		// 生产环境应该使用 RequireAndVerifyClientCert
+		tlsCfg := &tls.Config{
+			Certificates: []tls.Certificate{serverCert},
+			ClientCAs:    caPool,
+			ClientAuth:   tls.RequestClientCert, // 请求客户端证书但不强制（测试用）
+			MinVersion:   tls.VersionTLS12,      // 降低到 TLS 1.2 以兼容更多客户端
+		}
+
+		creds := credentials.NewTLS(tlsCfg)
 		opts = append(opts, grpc.Creds(creds))
 	}
 
@@ -190,71 +224,45 @@ func (s *GRPCServer) StartDKG(ctx context.Context, req *pb.StartDKGRequest) (*pb
 		Str("this_node_id", s.nodeID).
 		Msg("StartDKG RPC received")
 
-	// 验证 Admin 权限 (TODO: 实现 verifyAdminPasskey)
-	if req.AdminAuth != nil {
-		// 构造 Challenge
-		// 注意: NodeIds 排序以确保一致性
-		sortedNodeIDs := make([]string, len(req.NodeIds))
-		copy(sortedNodeIDs, req.NodeIds)
-		sort.Strings(sortedNodeIDs)
-
-		challengeRaw := fmt.Sprintf("%s|%s|%s|%s|%d|%d|%s",
-			req.KeyId, req.SessionId, req.Algorithm, req.Curve,
-			req.Threshold, req.TotalNodes, strings.Join(sortedNodeIDs, ","))
-		challengeHash := sha256.Sum256([]byte(challengeRaw))
-		expectedChallenge := base64.RawURLEncoding.EncodeToString(challengeHash[:])
-
-		if err := s.verifyAdminPasskey(ctx, req.AdminAuth, expectedChallenge, ""); err != nil {
-			log.Warn().Err(err).Msg("Admin passkey verification failed for DKG")
-			return &pb.StartDKGResponse{
-				Started: false,
-				Message: fmt.Sprintf("Admin verification failed: %v", err),
-			}, nil
-		}
-		log.Info().Str("admin_cred_id", req.AdminAuth.CredentialId).Msg("Admin auth token verified for DKG")
-
-		// 自动绑定首任管理员逻辑 (Bootstrapping)
-		if s.metadataStore != nil {
-			// 检查该钱包是否已有成员
-			members, err := s.metadataStore.ListWalletMembers(ctx, req.KeyId)
-			if err != nil {
-				// 仅记录警告，不阻塞 DKG (防止 DB 临时故障导致无法创建)
-				log.Warn().Err(err).Str("key_id", req.KeyId).Msg("Failed to list wallet members during DKG bootstrapping")
-			} else if len(members) == 0 {
-				// 钱包无成员，自动将当前发起者绑定为管理员
-				log.Info().Str("key_id", req.KeyId).Str("admin_cred_id", req.AdminAuth.CredentialId).Msg("No members found for wallet, bootstrapping admin member")
-				if err := s.metadataStore.AddWalletMember(ctx, req.KeyId, req.AdminAuth.CredentialId, "admin"); err != nil {
-					log.Error().Err(err).Str("key_id", req.KeyId).Msg("Failed to bootstrap wallet admin member")
-					// 绑定失败应视为严重错误，防止创建无主钱包
-					return &pb.StartDKGResponse{
-						Started: false,
-						Message: fmt.Sprintf("Failed to bootstrap wallet admin: %v", err),
-					}, nil
-				}
-				log.Info().Str("key_id", req.KeyId).Str("admin_cred_id", req.AdminAuth.CredentialId).Msg("Successfully bootstrapped wallet admin")
-			} else {
-				// 钱包已有成员，必须验证发起者是否为 Admin
-				isMember, role, err := s.metadataStore.IsWalletMember(ctx, req.KeyId, req.AdminAuth.CredentialId)
-				if err != nil {
-					log.Error().Err(err).Msg("Failed to check requester membership role for StartDKG")
-					return &pb.StartDKGResponse{Started: false, Message: "Authorization check failed"}, nil
-				}
-				if !isMember || role != "admin" {
-					log.Warn().Str("cred_id", req.AdminAuth.CredentialId).Msg("Permission denied for StartDKG: not an admin")
-					return &pb.StartDKGResponse{Started: false, Message: "Permission denied: requester is not an admin"}, nil
-				}
-			}
-		}
-	} else {
-		log.Warn().Msg("Missing admin auth token for DKG")
-		// 严格模式下返回错误
-	}
+	// Admin 权限验证已删除（团队签功能已移除）
+	// Service 节点会验证请求，Signer 节点信任来自 Service 的请求
 
 	// 使用sync.Once确保每个sessionID只启动一次DKG协议
 	// 防止StartDKG RPC和自动启动机制同时启动DKG
 	sessionID := req.SessionId
 	if sessionID == "" {
 		sessionID = req.KeyId // 如果sessionID为空，使用keyID
+	}
+
+	// 存储 Client 公钥到会话（用于 E2E 签名验证）
+	if req.ClientPublicKey != "" {
+		// 获取或创建会话
+		sess, err := s.sessionManager.GetSession(ctx, sessionID)
+		if err != nil {
+			// 会话不存在，创建新会话
+			protocolName := inferProtocolForDKG(req.Algorithm, req.Curve)
+			sess, err = s.sessionManager.CreateKeyGenSession(ctx, req.KeyId, protocolName, int(req.Threshold), int(req.TotalNodes), req.NodeIds)
+			if err != nil {
+				log.Warn().
+					Err(err).
+					Str("session_id", sessionID).
+					Msg("Failed to create session for client public key storage")
+			}
+		}
+		if sess != nil {
+			sess.ClientPublicKey = req.ClientPublicKey
+			if err := s.sessionManager.UpdateSession(ctx, sess); err != nil {
+				log.Warn().
+					Err(err).
+					Str("session_id", sessionID).
+					Msg("Failed to update session with client public key")
+			} else {
+				log.Debug().
+					Str("session_id", sessionID).
+					Str("client_public_key_len", fmt.Sprintf("%d", len(req.ClientPublicKey))).
+					Msg("Stored client public key in session")
+			}
+		}
 	}
 
 	onceInterface, _ := s.dkgStartOnce.LoadOrStore(sessionID, &sync.Once{})
@@ -336,7 +344,23 @@ func (s *GRPCServer) StartDKG(ctx context.Context, req *pb.StartDKGRequest) (*pb
 					Str("key_id", req.KeyId).
 					Str("session_id", sessionID).
 					Str("this_node_id", s.nodeID).
+					Str("algorithm", req.Algorithm).
+					Str("curve", req.Curve).
+					Int32("threshold", req.Threshold).
+					Int32("total_nodes", req.TotalNodes).
+					Strs("node_ids", req.NodeIds).
 					Msg("GenerateKeyShare failed in StartDKG RPC goroutine")
+
+				// 更新会话状态为失败
+				if sess, getErr := s.sessionManager.GetSession(keygenCtx, sessionID); getErr == nil {
+					sess.Status = "failed"
+					if updateErr := s.sessionManager.UpdateSession(keygenCtx, sess); updateErr != nil {
+						log.Error().
+							Err(updateErr).
+							Str("session_id", sessionID).
+							Msg("Failed to update session status to failed after GenerateKeyShare error")
+					}
+				}
 			} else if resp != nil && resp.PublicKey != nil && resp.PublicKey.Hex != "" {
 				log.Info().
 					Str("key_id", req.KeyId).
@@ -363,41 +387,6 @@ func (s *GRPCServer) StartDKG(ctx context.Context, req *pb.StartDKGRequest) (*pb
 								Str("this_node_id", s.nodeID).
 								Msg("Key share stored successfully in StartDKG RPC goroutine")
 
-							// 生成并保存SSS备份分片
-							if s.backupService != nil && s.metadataStore != nil {
-								backupStorage, ok := s.metadataStore.(storage.BackupShareStorage)
-								if ok {
-									// 对该MPC分片生成SSS备份分片 (默认 3-of-5 备份策略)
-									// TODO: 从配置或请求中获取备份策略
-									backupShares, err := s.backupService.GenerateBackupShares(keygenCtx, share.Share, 3, 5)
-									if err != nil {
-										log.Error().
-											Err(err).
-											Str("key_id", req.KeyId).
-											Str("node_id", nodeID).
-											Msg("Failed to generate backup shares")
-									} else {
-										for i, bs := range backupShares {
-											// 这里的 shareIndex 是 SSS 分片的索引 (1-based)
-											if err := backupStorage.SaveBackupShare(keygenCtx, req.KeyId, nodeID, i+1, bs.ShareData); err != nil {
-												log.Error().
-													Err(err).
-													Str("key_id", req.KeyId).
-													Str("node_id", nodeID).
-													Int("share_index", i+1).
-													Msg("Failed to save backup share")
-											}
-										}
-										log.Info().
-											Str("key_id", req.KeyId).
-											Str("node_id", nodeID).
-											Int("count", len(backupShares)).
-											Msg("Generated and saved SSS backup shares")
-									}
-								} else {
-									log.Warn().Msg("MetadataStore does not implement BackupShareStorage, skipping backup")
-								}
-							}
 						}
 					}
 				} else {
@@ -449,6 +438,123 @@ func (s *GRPCServer) StartDKG(ctx context.Context, req *pb.StartDKGRequest) (*pb
 	return &pb.StartDKGResponse{Started: true, Message: "DKG started in background"}, nil
 }
 
+// GetDKGStatus 查询 DKG 会话状态
+func (s *GRPCServer) GetDKGStatus(ctx context.Context, req *pb.GetDKGStatusRequest) (*pb.DKGStatusResponse, error) {
+	log.Debug().
+		Str("session_id", req.SessionId).
+		Str("this_node_id", s.nodeID).
+		Msg("GetDKGStatus RPC received")
+
+	// DKG 会话的 sessionID 等于 keyID
+	sessionID := req.SessionId
+	if sessionID == "" {
+		return &pb.DKGStatusResponse{
+			SessionId: sessionID,
+			Status:    "failed",
+			Error:     "session_id is required",
+		}, nil
+	}
+
+	// 从会话管理器获取会话信息
+	sess, err := s.sessionManager.GetSession(ctx, sessionID)
+	if err != nil {
+		log.Warn().
+			Err(err).
+			Str("session_id", sessionID).
+			Msg("Failed to get DKG session")
+		return &pb.DKGStatusResponse{
+			SessionId: sessionID,
+			Status:    "failed",
+			Error:     fmt.Sprintf("session not found: %v", err),
+		}, nil
+	}
+
+	// 构建响应
+	response := &pb.DKGStatusResponse{
+		SessionId:    sessionID,
+		Status:       sess.Status,
+		CurrentRound: int32(sess.CurrentRound),
+		TotalRounds:  int32(sess.TotalRounds),
+	}
+
+	// 如果 DKG 已完成，返回公钥（存储在 Signature 字段中）
+	if sess.Status == "completed" && sess.Signature != "" {
+		response.PublicKey = sess.Signature
+	}
+
+	// 如果状态为 failed，返回错误信息
+	if sess.Status == "failed" {
+		response.Error = "DKG failed"
+	}
+
+	log.Debug().
+		Str("session_id", sessionID).
+		Str("status", sess.Status).
+		Int("current_round", sess.CurrentRound).
+		Int("total_rounds", sess.TotalRounds).
+		Msg("GetDKGStatus response")
+
+	return response, nil
+}
+
+// GetSignStatus 查询签名会话状态
+func (s *GRPCServer) GetSignStatus(ctx context.Context, req *pb.GetSignStatusRequest) (*pb.SignStatusResponse, error) {
+	log.Debug().
+		Str("session_id", req.SessionId).
+		Str("this_node_id", s.nodeID).
+		Msg("GetSignStatus RPC received")
+
+	sessionID := req.SessionId
+	if sessionID == "" {
+		return &pb.SignStatusResponse{
+			SessionId: sessionID,
+			Status:    "failed",
+			Error:     "session_id is required",
+		}, nil
+	}
+
+	// 从会话管理器获取会话信息
+	sess, err := s.sessionManager.GetSession(ctx, sessionID)
+	if err != nil {
+		log.Warn().
+			Err(err).
+			Str("session_id", sessionID).
+			Msg("Failed to get sign session")
+		return &pb.SignStatusResponse{
+			SessionId: sessionID,
+			Status:    "failed",
+			Error:     fmt.Sprintf("session not found: %v", err),
+		}, nil
+	}
+
+	// 构建响应
+	response := &pb.SignStatusResponse{
+		SessionId:    sessionID,
+		Status:       sess.Status,
+		CurrentRound: int32(sess.CurrentRound),
+		TotalRounds:  int32(sess.TotalRounds),
+	}
+
+	// 如果签名已完成，返回签名（存储在 Signature 字段中）
+	if sess.Status == "completed" && sess.Signature != "" {
+		response.Signature = sess.Signature
+	}
+
+	// 如果状态为 failed，返回错误信息
+	if sess.Status == "failed" {
+		response.Error = "Signing failed"
+	}
+
+	log.Debug().
+		Str("session_id", sessionID).
+		Str("status", sess.Status).
+		Int("current_round", sess.CurrentRound).
+		Int("total_rounds", sess.TotalRounds).
+		Msg("GetSignStatus response")
+
+	return response, nil
+}
+
 // StartSign 由协调者调用以启动参与者的签名
 func (s *GRPCServer) StartSign(ctx context.Context, req *pb.StartSignRequest) (*pb.StartSignResponse, error) {
 	log.Info().
@@ -460,6 +566,35 @@ func (s *GRPCServer) StartSign(ctx context.Context, req *pb.StartSignRequest) (*
 	sessionID := req.SessionId
 	if sessionID == "" {
 		sessionID = req.KeyId
+	}
+
+	// 存储 Client 公钥到会话（用于 E2E 签名验证）
+	if req.ClientPublicKey != "" {
+		sess, err := s.sessionManager.GetSession(ctx, sessionID)
+		if err != nil {
+			// 会话不存在，创建新会话
+			sess, err = s.sessionManager.CreateSession(ctx, req.KeyId, req.Protocol, int(req.Threshold), int(req.TotalNodes))
+			if err != nil {
+				log.Warn().
+					Err(err).
+					Str("session_id", sessionID).
+					Msg("Failed to create session for client public key storage")
+			}
+		}
+		if sess != nil {
+			sess.ClientPublicKey = req.ClientPublicKey
+			if err := s.sessionManager.UpdateSession(ctx, sess); err != nil {
+				log.Warn().
+					Err(err).
+					Str("session_id", sessionID).
+					Msg("Failed to update session with client public key")
+			} else {
+				log.Debug().
+					Str("session_id", sessionID).
+					Str("client_public_key_len", fmt.Sprintf("%d", len(req.ClientPublicKey))).
+					Msg("Stored client public key in session")
+			}
+		}
 	}
 
 	// 基本校验：节点数量应满足 threshold/totalNodes
@@ -496,6 +631,8 @@ func (s *GRPCServer) StartSign(ctx context.Context, req *pb.StartSignRequest) (*
 				Str("key_id", req.KeyId).
 				Str("session_id", sessionID).
 				Str("this_node_id", s.nodeID).
+				Str("protocol", req.Protocol).
+				Int("auth_tokens", len(req.AuthTokens)).
 				Msg("Guardian check failed, rejecting StartSign request")
 			return &pb.StartSignResponse{Started: false, Message: fmt.Sprintf("Guardian Access Denied: %v", err)}, nil
 		}
@@ -601,6 +738,11 @@ func (s *GRPCServer) StartSign(ctx context.Context, req *pb.StartSignRequest) (*
 					Str("key_id", req.KeyId).
 					Str("session_id", sessionID).
 					Str("this_node_id", s.nodeID).
+					Str("protocol", req.Protocol).
+					Int("message_len", len(msg)).
+					Strs("node_ids", req.NodeIds).
+					Int32("threshold", req.Threshold).
+					Int32("total_nodes", req.TotalNodes).
 					Msg("ThresholdSign failed in StartSign RPC goroutine")
 
 				// ✅ 更新会话状态为失败
@@ -610,6 +752,7 @@ func (s *GRPCServer) StartSign(ctx context.Context, req *pb.StartSignRequest) (*
 						log.Error().
 							Err(updateErr).
 							Str("session_id", sessionID).
+							Str("this_node_id", s.nodeID).
 							Msg("Failed to update session status to failed")
 					}
 				}
@@ -672,197 +815,12 @@ func (s *GRPCServer) StartSign(ctx context.Context, req *pb.StartSignRequest) (*
 	return &pb.StartSignResponse{Started: true, Message: "Signing started in background"}, nil
 }
 
-// StartResharing 由协调者调用以启动参与者的密钥轮换
-func (s *GRPCServer) StartResharing(ctx context.Context, req *pb.StartResharingRequest) (*pb.StartResharingResponse, error) {
-	log.Info().
-		Str("key_id", req.KeyId).
-		Str("session_id", req.SessionId).
-		Str("this_node_id", s.nodeID).
-		Msg("StartResharing RPC received")
-
-	// 验证 Admin 权限 (TODO: 实现 verifyAdminPasskey)
-	if req.AdminAuth != nil {
-		sortedOld := make([]string, len(req.OldNodeIds))
-		copy(sortedOld, req.OldNodeIds)
-		sort.Strings(sortedOld)
-		sortedNew := make([]string, len(req.NewNodeIds))
-		copy(sortedNew, req.NewNodeIds)
-		sort.Strings(sortedNew)
-
-		challengeRaw := fmt.Sprintf("%s|%s|%d|%d|%s|%s",
-			req.KeyId, req.SessionId, req.OldThreshold, req.NewThreshold,
-			strings.Join(sortedOld, ","), strings.Join(sortedNew, ","))
-		challengeHash := sha256.Sum256([]byte(challengeRaw))
-		expectedChallenge := base64.RawURLEncoding.EncodeToString(challengeHash[:])
-
-		if err := s.verifyAdminPasskey(ctx, req.AdminAuth, expectedChallenge, ""); err != nil {
-			log.Warn().Err(err).Msg("Admin passkey verification failed for Resharing")
-			return &pb.StartResharingResponse{
-				Started: false,
-				Message: fmt.Sprintf("Admin verification failed: %v", err),
-			}, nil
-		}
-		log.Info().Str("admin_cred_id", req.AdminAuth.CredentialId).Msg("Admin auth token verified for Resharing")
-
-		// 验证是否有管理权限 (Authorization)
-		if s.metadataStore != nil {
-			isMember, role, err := s.metadataStore.IsWalletMember(ctx, req.KeyId, req.AdminAuth.CredentialId)
-			if err != nil {
-				log.Error().Err(err).Msg("Failed to check requester membership role for StartResharing")
-				return &pb.StartResharingResponse{Started: false, Message: "Authorization check failed"}, nil
-			}
-			if !isMember || role != "admin" {
-				log.Warn().Str("cred_id", req.AdminAuth.CredentialId).Msg("Permission denied for StartResharing: not an admin")
-				return &pb.StartResharingResponse{Started: false, Message: "Permission denied: requester is not an admin"}, nil
-			}
-		}
-	} else {
-		log.Warn().Msg("Missing admin auth token for Resharing")
-	}
-
-	sessionID := req.SessionId
-	if sessionID == "" {
-		sessionID = req.KeyId
-	}
-
-	onceInterface, _ := s.resharingStartOnce.LoadOrStore(sessionID, &sync.Once{})
-	once := onceInterface.(*sync.Once)
-
-	var started bool
-
-	once.Do(func() {
-		started = true
-		log.Info().
-			Str("key_id", req.KeyId).
-			Str("session_id", sessionID).
-			Str("this_node_id", s.nodeID).
-			Msg("sync.Once.Do executed in StartResharing RPC - starting resharing in goroutine")
-
-		go func() {
-			resharingTimeout := 10 * time.Minute
-			resharingCtx, cancel := context.WithTimeout(context.Background(), resharingTimeout)
-			defer cancel()
-
-			// 获取协议引擎（Resharing 目前仅支持 GG20）
-			// TODO: 支持其他协议
-			engine := s.protocolEngine
-			if s.protocolRegistry != nil {
-				if regEngine, err := s.protocolRegistry.Get("gg20"); err == nil {
-					engine = regEngine
-				}
-			}
-
-			// 类型断言检查是否支持 ExecuteResharing
-			// 目前只有 GG20Protocol 实现了 ExecuteResharing
-			// 如果 engine 是 interface Wrapper，可能需要扩展 Engine 接口
-			type Resharer interface {
-				ExecuteResharing(
-					ctx context.Context,
-					keyID string,
-					oldNodeIDs []string,
-					newNodeIDs []string,
-					oldThreshold int,
-					newThreshold int,
-				) (*protocol.KeyGenResponse, error)
-			}
-
-			resharer, ok := engine.(Resharer)
-			if !ok {
-				log.Error().
-					Str("key_id", req.KeyId).
-					Str("session_id", sessionID).
-					Str("this_node_id", s.nodeID).
-					Msg("Protocol engine does not support Resharing")
-				return
-			}
-
-			resp, err := resharer.ExecuteResharing(
-				resharingCtx,
-				req.KeyId,
-				req.OldNodeIds,
-				req.NewNodeIds,
-				int(req.OldThreshold),
-				int(req.NewThreshold),
-			)
-			if err != nil {
-				log.Error().
-					Err(err).
-					Str("key_id", req.KeyId).
-					Str("session_id", sessionID).
-					Str("this_node_id", s.nodeID).
-					Msg("ExecuteResharing failed in StartResharing RPC goroutine")
-				return
-			}
-
-			if resp != nil && resp.PublicKey != nil && resp.PublicKey.Hex != "" {
-				log.Info().
-					Str("key_id", req.KeyId).
-					Str("session_id", sessionID).
-					Str("this_node_id", s.nodeID).
-					Str("public_key", resp.PublicKey.Hex).
-					Msg("Resharing completed successfully")
-
-				// 存储新分片
-				if s.keyShareStorage != nil && len(resp.KeyShares) > 0 {
-					// 检查 MetadataStore 是否支持备份存储
-					var backupStorage storage.BackupShareStorage
-					if s.backupService != nil {
-						if bs, ok := s.metadataStore.(storage.BackupShareStorage); ok {
-							backupStorage = bs
-						} else {
-							log.Warn().Msg("MetadataStore does not implement BackupShareStorage, skipping SSS backup during resharing")
-						}
-					}
-
-					for nodeID, share := range resp.KeyShares {
-						if err := s.keyShareStorage.StoreKeyShare(resharingCtx, req.KeyId, nodeID, share.Share); err != nil {
-							log.Error().Err(err).Msg("Failed to store new key share")
-						}
-
-						// 生成并存储备份 (仅当 backupService 和 backupStorage 可用时)
-						if s.backupService != nil && backupStorage != nil {
-							// 对单个MPC分片进行SSS备份
-							// 注意：这里硬编码了 threshold=3, total=5，实际应从配置或策略中读取
-							// 暂时保持与 CreateRootKey 一致
-							backupShares, err := s.backupService.GenerateBackupShares(resharingCtx, share.Share, 3, 5)
-							if err != nil {
-								log.Error().
-									Err(err).
-									Str("key_id", req.KeyId).
-									Str("node_id", nodeID).
-									Msg("Failed to generate backup shares for reshared MPC share")
-								continue
-							}
-
-							for i, backupShare := range backupShares {
-								shareIndex := i + 1
-								if err := backupStorage.SaveBackupShare(resharingCtx, req.KeyId, nodeID, shareIndex, backupShare.ShareData); err != nil {
-									log.Error().
-										Err(err).
-										Str("key_id", req.KeyId).
-										Str("node_id", nodeID).
-										Int("share_index", shareIndex).
-										Msg("Failed to save backup share during resharing")
-								} else {
-									log.Info().
-										Str("key_id", req.KeyId).
-										Str("node_id", nodeID).
-										Int("share_index", shareIndex).
-										Msg("Saved SSS backup share during resharing")
-								}
-							}
-						}
-					}
-				}
-			}
-		}()
-	})
-
-	if !started {
-		return &pb.StartResharingResponse{Started: true, Message: "Resharing already started"}, nil
-	}
-
-	return &pb.StartResharingResponse{Started: true, Message: "Resharing started in background"}, nil
+// StartResharing 密钥轮换功能已删除
+func (s *GRPCServer) StartResharing(ctx context.Context, req interface{}) (interface{}, error) {
+	return map[string]interface{}{
+		"started": false,
+		"message": "Key rotation (resharing) is not supported",
+	}, nil
 }
 
 // handleProtocolMessage 处理协议消息（DKG或签名）
@@ -1038,41 +996,7 @@ func (s *GRPCServer) handleProtocolMessage(ctx context.Context, sessionID string
 										Str("this_node_id", s.nodeID).
 										Msg("Key share stored successfully in auto-start goroutine")
 
-									// 生成并保存SSS备份分片
-									if s.backupService != nil && s.metadataStore != nil {
-										backupStorage, ok := s.metadataStore.(storage.BackupShareStorage)
-										if ok {
-											// 对该MPC分片生成SSS备份分片 (默认 3-of-5 备份策略)
-											// TODO: 从配置或请求中获取备份策略
-											backupShares, err := s.backupService.GenerateBackupShares(keygenCtx, share.Share, 3, 5)
-											if err != nil {
-												log.Error().
-													Err(err).
-													Str("key_id", sess.KeyID).
-													Str("node_id", nodeID).
-													Msg("Failed to generate backup shares")
-											} else {
-												for i, bs := range backupShares {
-													// 这里的 shareIndex 是 SSS 分片的索引 (1-based)
-													if err := backupStorage.SaveBackupShare(keygenCtx, sess.KeyID, nodeID, i+1, bs.ShareData); err != nil {
-														log.Error().
-															Err(err).
-															Str("key_id", sess.KeyID).
-															Str("node_id", nodeID).
-															Int("share_index", i+1).
-															Msg("Failed to save backup share")
-													}
-												}
-												log.Info().
-													Str("key_id", sess.KeyID).
-													Str("node_id", nodeID).
-													Int("count", len(backupShares)).
-													Msg("Generated and saved SSS backup shares")
-											}
-										} else {
-											log.Warn().Msg("MetadataStore does not implement BackupShareStorage, skipping backup")
-										}
-									}
+									// 备份功能已删除
 								}
 							}
 						} else {
@@ -1192,10 +1116,129 @@ func (s *GRPCServer) SubmitProtocolMessage(ctx context.Context, req *pb.SubmitPr
 // Heartbeat 心跳检测
 func (s *GRPCServer) Heartbeat(ctx context.Context, req *pb.HeartbeatRequest) (*pb.HeartbeatResponse, error) {
 	return &pb.HeartbeatResponse{
-		Alive:         true,
-		CoordinatorId: s.nodeID, // 保持向后兼容，实际是 signer 节点 ID
-		ReceivedAt:    time.Now().Format(time.RFC3339),
-		Instructions:  make(map[string]string),
+		Alive:        true,
+		ReceivedAt:   time.Now().Format(time.RFC3339),
+		Instructions: make(map[string]string),
+	}, nil
+}
+
+// RelayProtocolMessage 中继协议消息（从 Client 通过 Service 中继到 Signer）
+func (s *GRPCServer) RelayProtocolMessage(ctx context.Context, req *pb.RelayMessageRequest) (*pb.RelayMessageResponse, error) {
+	log.Debug().
+		Str("session_id", req.SessionId).
+		Str("from_node_id", req.FromNodeId).
+		Str("to_node_id", req.ToNodeId).
+		Int32("round", req.Round).
+		Bool("is_broadcast", req.IsBroadcast).
+		Int("message_len", len(req.MessageData)).
+		Msg("RelayProtocolMessage RPC received")
+
+	// 验证目标节点是否为本节点
+	if req.ToNodeId != "" && req.ToNodeId != s.nodeID {
+		log.Warn().
+			Str("to_node_id", req.ToNodeId).
+			Str("this_node_id", s.nodeID).
+			Msg("Message not for this node, ignoring")
+		return &pb.RelayMessageResponse{
+			Accepted: false,
+		}, nil
+	}
+
+	// 验证 Client (P1) 的 Passkey 签名（E2E 认证）
+	if req.FromNodeId != "" && req.FromNodeId != s.nodeID {
+		// 从会话中获取 Client 公钥
+		sess, err := s.sessionManager.GetSession(ctx, req.SessionId)
+		if err != nil {
+			log.Warn().
+				Err(err).
+				Str("session_id", req.SessionId).
+				Msg("Failed to get session for client signature verification")
+			return &pb.RelayMessageResponse{Accepted: false}, nil
+		}
+
+		if sess.ClientPublicKey != "" && len(req.ClientSignature) > 0 {
+			// 验证 Client 签名
+			if err := auth.VerifyPasskeyMessageSignature(
+				sess.ClientPublicKey,
+				req.ClientSignature,
+				req.SessionId,
+				req.FromNodeId,
+				req.ToNodeId,
+				req.MessageData,
+				req.Round,
+				req.IsBroadcast,
+				req.Timestamp,
+			); err != nil {
+				log.Warn().
+					Err(err).
+					Str("session_id", req.SessionId).
+					Str("from_node_id", req.FromNodeId).
+					Msg("Client signature verification failed")
+				return &pb.RelayMessageResponse{Accepted: false}, nil
+			}
+			log.Debug().
+				Str("session_id", req.SessionId).
+				Str("from_node_id", req.FromNodeId).
+				Msg("Client signature verified successfully")
+		} else if sess.ClientPublicKey != "" && len(req.ClientSignature) == 0 {
+			// Client 公钥已配置但请求中没有签名，记录警告
+			log.Warn().
+				Str("session_id", req.SessionId).
+				Str("from_node_id", req.FromNodeId).
+				Msg("Client public key is configured but request has no client_signature")
+			return &pb.RelayMessageResponse{Accepted: false}, nil
+		}
+	}
+
+	// 处理协议消息
+	isBroadcast := req.IsBroadcast
+	if err := s.handleProtocolMessage(ctx, req.SessionId, req.FromNodeId, req.MessageData, req.Round, isBroadcast); err != nil {
+		log.Error().
+			Err(err).
+			Str("session_id", req.SessionId).
+			Str("from_node_id", req.FromNodeId).
+			Str("to_node_id", req.ToNodeId).
+			Int32("round", req.Round).
+			Bool("is_broadcast", isBroadcast).
+			Int("message_len", len(req.MessageData)).
+			Msg("Failed to handle protocol message")
+		return &pb.RelayMessageResponse{
+			Accepted: false,
+		}, nil
+	}
+
+	// 生成消息 ID
+	messageID := fmt.Sprintf("msg-%s-%d", req.SessionId, time.Now().UnixNano())
+
+	log.Debug().
+		Str("session_id", req.SessionId).
+		Str("message_id", messageID).
+		Str("from_node_id", req.FromNodeId).
+		Str("to_node_id", req.ToNodeId).
+		Msg("Protocol message relayed successfully")
+
+	// 注意：协议消息处理是异步的，目前无法立即返回同步响应消息
+	// 如果未来协议引擎支持同步响应，可以在这里检查并返回 reply_message
+	// 目前返回 accepted=true，表示消息已被接受并放入处理队列
+	return &pb.RelayMessageResponse{
+		Accepted:  true,
+		MessageId: messageID,
+		HasReply:  false, // 协议消息处理是异步的，无法立即返回响应
+	}, nil
+}
+
+// Ping 健康检查
+func (s *GRPCServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PongResponse, error) {
+	log.Info().
+		Str("from_service", req.FromService).
+		Str("timestamp", req.Timestamp).
+		Str("node_id", s.nodeID).
+		Msg("Ping RPC received")
+
+	return &pb.PongResponse{
+		Alive:     true,
+		NodeId:    s.nodeID,
+		Timestamp: time.Now().Format(time.RFC3339),
 	}, nil
 }
 
@@ -1222,9 +1265,8 @@ func (s *GRPCServer) Start(ctx context.Context) error {
 	opts, _ := s.GetServerOptions()
 	s.grpcServer = grpc.NewServer(opts...)
 
-	// 注册服务
-	pb.RegisterMPCNodeServer(s.grpcServer, s)
-	pb.RegisterMPCManagementServer(s.grpcServer, s)
+	// 注册服务（只注册 SignerService，MPCNode 和 MPCManagement 已删除）
+	pb.RegisterSignerServiceServer(s.grpcServer, s)
 
 	// 启用反射（开发环境）
 	reflection.Register(s.grpcServer)
@@ -1236,8 +1278,19 @@ func (s *GRPCServer) Start(ctx context.Context) error {
 
 	// 在 goroutine 中启动服务器
 	go func() {
+		log.Info().
+			Str("address", addr).
+			Bool("tls", s.cfg.TLSEnabled).
+			Str("listener_addr", listener.Addr().String()).
+			Msg("MPC gRPC server listening for connections")
+
+		// 添加连接监听日志
+		log.Info().Msg("Waiting for incoming gRPC connections...")
+
 		if err := s.grpcServer.Serve(listener); err != nil {
 			log.Error().Err(err).Msg("MPC gRPC server failed")
+		} else {
+			log.Info().Msg("MPC gRPC server stopped")
 		}
 	}()
 
@@ -1259,6 +1312,172 @@ func (s *GRPCServer) Stop() error {
 	}
 
 	return nil
+}
+
+// Participate 处理来自 Client 的直连请求 (V3)
+// 这是一个双向流式 RPC
+func (s *GRPCServer) Participate(stream pb.SignerService_ParticipateServer) error {
+	ctx := stream.Context()
+
+	// 1. 鉴权：从 metadata 获取 Token
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return status.Error(codes.Unauthenticated, "missing metadata")
+	}
+
+	// Token 格式：Bearer <jwt_token>
+	authHeader := md.Get("authorization")
+	if len(authHeader) == 0 {
+		return status.Error(codes.Unauthenticated, "missing authorization token")
+	}
+
+	token := strings.TrimPrefix(authHeader[0], "Bearer ")
+	if token == "" {
+		return status.Error(codes.Unauthenticated, "invalid authorization token format")
+	}
+
+	jwtManager := auth.NewJWTManager(s.cfg.JWTSecret, "", time.Hour)
+	claims, err := jwtManager.Validate(token)
+	if err != nil {
+		return status.Error(codes.Unauthenticated, "invalid authorization token")
+	}
+	mobileNodeID := claims.Subject
+	if mobileNodeID == "" {
+		mobileNodeID = claims.AppID
+	}
+	if mobileNodeID == "" {
+		return status.Error(codes.Unauthenticated, "invalid authorization claims")
+	}
+
+	log.Info().Str("mobile_node_id", mobileNodeID).Msg("Participate stream connected")
+
+	// 注册流
+	if s.streamManager != nil {
+		s.streamManager.Register(mobileNodeID, stream)
+		defer s.streamManager.Unregister(mobileNodeID)
+	}
+
+	// 2. 启动消息处理循环
+	// 我们需要两个 goroutine：
+	// - 一个从 stream 读取消息 -> 写入 sessionManager (Input)
+	// - 一个从 sessionManager 读取消息 (Output) -> 写入 stream
+
+	errChan := make(chan error, 2)
+
+	// 2.1 接收循环 (Stream -> SessionManager)
+	go func() {
+		for {
+			req, err := stream.Recv()
+			if err != nil {
+				errChan <- err
+				return
+			}
+
+			// 处理接收到的消息
+			// ParticipateRequest: SessionId, FromNodeId, ToNodeId, Data, MsgType, Round
+
+			sessionID := req.SessionId
+			// 注入消息到 SessionManager / ProtocolEngine
+			// 使用 handleProtocolMessage
+
+			// ParticipateRequest 没有 IsBroadcast 字段，根据 MsgType 判断？或者假设都是非广播？
+			// Client (P1) 发送给 P2 的消息通常是单播。如果是广播消息，Client 会发送给所有节点。
+			// 但 tss-lib 的消息本身包含了是否广播的信息。
+			// handleProtocolMessage 需要 isBroadcast 参数来决定调用 ProcessIncomingKeygenMessage 的哪个重载。
+			// 但实际上，engine.ProcessIncomingKeygenMessage(..., isBroadcast) 主要是为了传递给 tss.UpdateFromBytes
+			// 我们可以尝试解析 req.Data 来判断？或者默认 false？
+			// 或者修改 proto 添加 IsBroadcast 字段？
+
+			// 暂时假设 false，或者根据 MsgType (如果可用)
+			isBroadcast := false
+			// 如果 MsgType 包含 "broadcast"，则设为 true? (这依赖于 tss-lib 的命名)
+
+			// 消息来自 mobileNodeID
+			if err := s.handleProtocolMessage(ctx, sessionID, mobileNodeID, req.Data, req.Round, isBroadcast); err != nil {
+				log.Error().
+					Err(err).
+					Str("session_id", sessionID).
+					Str("mobile_node_id", mobileNodeID).
+					Int32("round", req.Round).
+					Msg("Failed to handle message from client stream")
+				// 不中断流，只是记录错误？或者发送错误回执？
+			}
+		}
+	}()
+
+	// 2.2 发送循环 (SessionManager -> Stream)
+	// 这需要 SessionManager 支持订阅特定 Session 的出站消息
+	// 目前 SessionManager 主要用于状态管理，消息路由是在 ProtocolEngine 中处理的
+	// 我们需要一种机制来捕获发往 mobileNodeID 的消息
+
+	// 临时方案：ProtocolEngine 发送消息时，如果是发给 mobileNodeID 的，应该通过某种回调通知这里
+	// 或者，我们可以轮询？不，轮询太低效。
+
+	// 更好的方案：
+	// 在 ProtocolEngine 中，当需要发送消息给某个节点时，检查该节点是否通过 gRPC 直连
+	// 如果是，则通过 channel 发送给对应的 Participate 处理函数
+
+	// TODO: 实现 ProtocolEngine 的消息路由回调机制
+	// 现在先阻塞，等待接收循环结束
+
+	select {
+	case err := <-errChan:
+		log.Info().Err(err).Msg("Participate stream closed")
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// reportResult 上报 DKG 或签名结果到 Service
+func (s *GRPCServer) reportResult(sessionID string, result string, isKeygen bool) {
+	log.Info().
+		Str("session_id", sessionID).
+		Str("result_len", fmt.Sprintf("%d", len(result))).
+		Bool("is_keygen", isKeygen).
+		Msg("Reporting result to Management Service")
+
+	// 发现 Service 节点
+	serviceAddr := os.Getenv("MPC_SERVICE_ADDR")
+	if serviceAddr == "" {
+		serviceAddr = "mpc-service:9091"
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	conn, err := grpc.DialContext(ctx, serviceAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+	)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to connect to Management Service for reporting result")
+		return
+	}
+	defer conn.Close()
+
+	client := pb.NewManagementServiceClient(conn)
+
+	// 构造请求
+	resultType := "SIGNATURE"
+	if isKeygen {
+		resultType = "DKG_PUBKEY"
+	}
+
+	req := &pb.ReportResultRequest{
+		SessionId:  sessionID,
+		NodeId:     s.nodeID,
+		ResultType: resultType,
+		Data:       result, // hex string
+		Error:      "",
+	}
+
+	resp, err := client.ReportResult(ctx, req)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to report result to Management Service")
+	} else if resp.Received {
+		log.Info().Msg("Successfully reported result to Management Service")
+	}
 }
 
 func (s *GRPCServer) checkGuardianPolicy(ctx context.Context, req *pb.StartSignRequest) error {
@@ -1288,18 +1507,7 @@ func (s *GRPCServer) checkGuardianPolicy(ctx context.Context, req *pb.StartSignR
 	verifiedCredentials := make(map[string]bool)
 
 	for _, token := range req.AuthTokens {
-		// 0. 检查是否为团队成员 (强制归属校验)
-		if policy.PolicyType == "team" {
-			isMember, _, err := s.metadataStore.IsWalletMember(ctx, req.KeyId, token.CredentialId)
-			if err != nil {
-				log.Error().Err(err).Str("credential_id", token.CredentialId).Msg("Failed to check wallet membership")
-				continue
-			}
-			if !isMember {
-				log.Warn().Str("credential_id", token.CredentialId).Str("key_id", req.KeyId).Msg("Credential is not a member of this wallet")
-				continue
-			}
-		}
+		// 团队签功能已删除，不再需要检查团队成员
 
 		// 1. 获取用户存储的 Passkey 公钥
 		userPasskey, err := s.metadataStore.GetPasskey(ctx, token.CredentialId)

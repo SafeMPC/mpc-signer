@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aarondl/sqlboiler/v4/boil"
 	"github.com/SafeMPC/mpc-signer/internal/models"
 	"github.com/SafeMPC/mpc-signer/internal/util"
+	"github.com/aarondl/sqlboiler/v4/boil"
 )
 
 // Live Service fixtures to be applied by manually running the CLI "app db seed"

@@ -296,7 +296,14 @@ func (m *Manager) serviceInfoToNode(svc *discovery.ServiceInfo) *Node {
 	}
 
 	// Get NodeID from tag or ID
-	nodeID := discovery.ExtractNodeID(svc)
+	// 从 tags 中提取 node ID
+	nodeID := ""
+	for _, tag := range svc.Tags {
+		if strings.HasPrefix(tag, "node-id:") {
+			nodeID = strings.TrimPrefix(tag, "node-id:")
+			break
+		}
+	}
 
 	return &Node{
 		NodeID:        nodeID,

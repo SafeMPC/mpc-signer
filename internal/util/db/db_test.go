@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aarondl/null/v8"
-	"github.com/aarondl/sqlboiler/v4/boil"
-	"github.com/aarondl/sqlboiler/v4/types"
 	"github.com/SafeMPC/mpc-signer/internal/models"
 	"github.com/SafeMPC/mpc-signer/internal/test"
 	"github.com/SafeMPC/mpc-signer/internal/util/db"
+	"github.com/aarondl/null/v8"
+	"github.com/aarondl/sqlboiler/v4/boil"
+	"github.com/aarondl/sqlboiler/v4/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/SafeMPC/mpc-signer/internal/api"
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
-	"github.com/SafeMPC/mpc-signer/internal/api"
 	"github.com/labstack/echo/v4"
 )
 

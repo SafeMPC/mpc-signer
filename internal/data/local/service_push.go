@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/aarondl/sqlboiler/v4/boil"
 	"github.com/SafeMPC/mpc-signer/internal/api/httperrors"
 	"github.com/SafeMPC/mpc-signer/internal/data/dto"
 	"github.com/SafeMPC/mpc-signer/internal/models"
 	"github.com/SafeMPC/mpc-signer/internal/util"
 	"github.com/SafeMPC/mpc-signer/internal/util/db"
+	"github.com/aarondl/sqlboiler/v4/boil"
 )
 
 func (s *Service) UpdatePushToken(ctx context.Context, request dto.UpdatePushTokenRequest) error {

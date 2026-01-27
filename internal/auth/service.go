@@ -5,10 +5,6 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/aarondl/null/v8"
-	"github.com/aarondl/sqlboiler/v4/boil"
-	"github.com/aarondl/sqlboiler/v4/queries/qm"
-	"github.com/dropbox/godropbox/time2"
 	"github.com/SafeMPC/mpc-signer/internal/api/httperrors"
 	"github.com/SafeMPC/mpc-signer/internal/config"
 	"github.com/SafeMPC/mpc-signer/internal/data/dto"
@@ -17,6 +13,10 @@ import (
 	"github.com/SafeMPC/mpc-signer/internal/util"
 	"github.com/SafeMPC/mpc-signer/internal/util/db"
 	"github.com/SafeMPC/mpc-signer/internal/util/hashing"
+	"github.com/aarondl/null/v8"
+	"github.com/aarondl/sqlboiler/v4/boil"
+	"github.com/aarondl/sqlboiler/v4/queries/qm"
+	"github.com/dropbox/godropbox/time2"
 	"github.com/labstack/echo/v4"
 )
 

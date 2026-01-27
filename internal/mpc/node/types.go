@@ -30,8 +30,8 @@ type NodeType string
 
 const (
 	NodeTypeService NodeType = "service" // MPC Service (会话管理/协调，不参与计算)
-	NodeTypeSigner  NodeType = "signer"   // Signer 节点 (参与 MPC 协议计算)
-	NodeTypeClient  NodeType = "client"   // 客户端节点
+	NodeTypeSigner  NodeType = "signer"  // Signer 节点 (参与 MPC 协议计算)
+	NodeTypeClient  NodeType = "client"  // 客户端节点
 )
 
 // NodePurpose 节点用途

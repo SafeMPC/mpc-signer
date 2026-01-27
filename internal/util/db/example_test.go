@@ -3,10 +3,10 @@ package db_test
 import (
 	"fmt"
 
-	"github.com/aarondl/sqlboiler/v4/queries"
-	"github.com/aarondl/sqlboiler/v4/queries/qm"
 	"github.com/SafeMPC/mpc-signer/internal/models"
 	"github.com/SafeMPC/mpc-signer/internal/util/db"
+	"github.com/aarondl/sqlboiler/v4/queries"
+	"github.com/aarondl/sqlboiler/v4/queries/qm"
 )
 
 type PublicName struct {

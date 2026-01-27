@@ -26,8 +26,8 @@ import (
 type GRPCClient struct {
 	mu            sync.RWMutex
 	conns         map[string]*grpc.ClientConn
-	clients       map[string]pb.MPCNodeClient
-	mgmtClients   map[string]pb.MPCManagementClient
+	clients       map[string]pb.SignerServiceClient
+	mgmtClients   map[string]interface{} // 暂时使用 interface{}，待后续实现
 	cfg           *ClientConfig
 	nodeManager   *node.Manager
 	nodeDiscovery *node.Discovery // 用于从 Consul 发现节点信息
@@ -64,8 +64,8 @@ func NewGRPCClient(cfg config.Server, nodeManager *node.Manager) (*GRPCClient, e
 
 	return &GRPCClient{
 		conns:         make(map[string]*grpc.ClientConn),
-		clients:       make(map[string]pb.MPCNodeClient),
-		mgmtClients:   make(map[string]pb.MPCManagementClient),
+		clients:       make(map[string]pb.SignerServiceClient),
+		mgmtClients:   make(map[string]interface{}),
 		cfg:           clientCfg,
 		nodeManager:   nodeManager,
 		nodeDiscovery: nil, // 稍后通过 SetNodeDiscovery 设置
@@ -81,7 +81,7 @@ func (c *GRPCClient) SetNodeDiscovery(discovery *node.Discovery) {
 }
 
 // getOrCreateConnection 获取或创建到指定节点的连接
-func (c *GRPCClient) getOrCreateConnection(ctx context.Context, nodeID string) (pb.MPCNodeClient, error) {
+func (c *GRPCClient) getOrCreateConnection(ctx context.Context, nodeID string) (pb.SignerServiceClient, error) {
 	c.mu.RLock()
 	client, ok := c.clients[nodeID]
 	c.mu.RUnlock()
@@ -204,19 +204,19 @@ func (c *GRPCClient) getOrCreateConnection(ctx context.Context, nodeID string) (
 	log.Debug().Str("node_id", nodeID).Str("endpoint", nodeInfo.Endpoint).Msg("Successfully connected to gRPC node")
 
 	// 创建客户端
-	client = pb.NewMPCNodeClient(conn)
-	mgmtClient := pb.NewMPCManagementClient(conn)
+	client = pb.NewSignerServiceClient(conn)
+	_ = client // mgmtClient 暂时不使用
 
 	// 保存连接和客户端
 	c.conns[nodeID] = conn
 	c.clients[nodeID] = client
-	c.mgmtClients[nodeID] = mgmtClient
+	// mgmtClients 已删除（团队签功能已移除）
 
 	return client, nil
 }
 
 // getOrCreateMgmtConnection 获取或创建到指定节点的 Management Client 连接
-func (c *GRPCClient) getOrCreateMgmtConnection(ctx context.Context, nodeID string) (pb.MPCManagementClient, error) {
+func (c *GRPCClient) getOrCreateMgmtConnection(ctx context.Context, nodeID string) (interface{}, error) {
 	c.mu.RLock()
 	client, ok := c.mgmtClients[nodeID]
 	c.mu.RUnlock()
@@ -238,41 +238,7 @@ func (c *GRPCClient) getOrCreateMgmtConnection(ctx context.Context, nodeID strin
 	return client, nil
 }
 
-// AddWalletMember 调用管理服务的 AddWalletMember RPC
-func (c *GRPCClient) AddWalletMember(ctx context.Context, nodeID string, req *pb.AddWalletMemberRequest) (*pb.AddWalletMemberResponse, error) {
-	client, err := c.getOrCreateMgmtConnection(ctx, nodeID)
-	if err != nil {
-		return nil, err
-	}
-	return client.AddWalletMember(ctx, req)
-}
-
-// RemoveWalletMember 调用管理服务的 RemoveWalletMember RPC
-func (c *GRPCClient) RemoveWalletMember(ctx context.Context, nodeID string, req *pb.RemoveWalletMemberRequest) (*pb.RemoveWalletMemberResponse, error) {
-	client, err := c.getOrCreateMgmtConnection(ctx, nodeID)
-	if err != nil {
-		return nil, err
-	}
-	return client.RemoveWalletMember(ctx, req)
-}
-
-// SetSigningPolicy 调用管理服务的 SetSigningPolicy RPC
-func (c *GRPCClient) SetSigningPolicy(ctx context.Context, nodeID string, req *pb.SetSigningPolicyRequest) (*pb.SetSigningPolicyResponse, error) {
-	client, err := c.getOrCreateMgmtConnection(ctx, nodeID)
-	if err != nil {
-		return nil, err
-	}
-	return client.SetSigningPolicy(ctx, req)
-}
-
-// GetSigningPolicy 调用管理服务的 GetSigningPolicy RPC
-func (c *GRPCClient) GetSigningPolicy(ctx context.Context, nodeID string, req *pb.GetSigningPolicyRequest) (*pb.GetSigningPolicyResponse, error) {
-	client, err := c.getOrCreateMgmtConnection(ctx, nodeID)
-	if err != nil {
-		return nil, err
-	}
-	return client.GetSigningPolicy(ctx, req)
-}
+// AddWalletMember, RemoveWalletMember, SetSigningPolicy, GetSigningPolicy 已删除（团队签功能已移除）
 
 // SendStartDKG 调用参与者的 StartDKG RPC
 func (c *GRPCClient) SendStartDKG(ctx context.Context, nodeID string, req *pb.StartDKGRequest) (*pb.StartDKGResponse, error) {
@@ -400,17 +366,18 @@ func (c *GRPCClient) SendSigningMessage(ctx context.Context, nodeID string, msg 
 		Interface("routing", routing).
 		Msg("🔍 [DIAGNOSTIC] Sending signing message via gRPC")
 
-	// 使用SubmitProtocolMessage发送消息
-	// 注意：NodeId应该表示发送方节点ID，而不是目标节点ID
-	req := &pb.SubmitProtocolMessageRequest{
-		SessionId: sessionID,    // 使用传入的会话ID
-		NodeId:    c.thisNodeID, // 发送方节点ID（当前节点）
-		Data:      msgBytes,
-		Round:     round,
-		Timestamp: time.Now().Format(time.RFC3339),
+	// 使用 RelayProtocolMessage 发送消息（通过 Service 中继）
+	req := &pb.RelayMessageRequest{
+		SessionId:   sessionID,
+		FromNodeId:  c.thisNodeID,
+		ToNodeId:    nodeID,
+		MessageData: msgBytes,
+		Round:       round,
+		IsBroadcast: isBroadcast,
+		Timestamp:   time.Now().Format(time.RFC3339),
 	}
 
-	resp, err := client.SubmitProtocolMessage(ctx, req)
+	resp, err := client.RelayProtocolMessage(ctx, req)
 	if err != nil {
 		log.Error().
 			Err(err).
@@ -426,8 +393,7 @@ func (c *GRPCClient) SendSigningMessage(ctx context.Context, nodeID string, msg 
 		Str("this_node_id", c.thisNodeID).
 		Str("target_node_id", nodeID).
 		Bool("accepted", resp.Accepted).
-		Int32("next_round", resp.NextRound).
-		Str("message", resp.Message).
+		Str("message_id", resp.MessageId).
 		Msg("🔍 [DIAGNOSTIC] Signing message sent successfully via gRPC")
 
 	return nil
@@ -471,26 +437,31 @@ func (c *GRPCClient) SendKeygenMessage(ctx context.Context, nodeID string, msg t
 		Int32("round_set", round).
 		Msg("Sending DKG ShareRequest via gRPC")
 
-	// DKG消息也通过SubmitProtocolMessage发送（使用相同的协议）
-	// 服务端会根据会话类型判断是DKG还是签名消息
-	// 注意：NodeId应该表示发送方节点ID，而不是目标节点ID
-	// 目标节点ID已经通过gRPC调用的目标地址确定了
-	req := &pb.SubmitProtocolMessageRequest{
-		SessionId: sessionID,    // 使用keyID作为会话ID
-		NodeId:    c.thisNodeID, // 发送方节点ID（当前节点）
-		Data:      msgBytes,
-		Round:     round,
-		Timestamp: time.Now().Format(time.RFC3339),
+	// 使用 RelayProtocolMessage 发送消息（通过 Service 中继）
+	relayReq := &pb.RelayMessageRequest{
+		SessionId:   sessionID,
+		FromNodeId:  c.thisNodeID,
+		ToNodeId:    nodeID,
+		MessageData: msgBytes,
+		Round:       round,
+		IsBroadcast: isBroadcast,
+		Timestamp:   time.Now().Format(time.RFC3339),
 	}
 
-	// 发送消息
-	resp, err := client.SubmitProtocolMessage(ctx, req)
+	resp, err := client.RelayProtocolMessage(ctx, relayReq)
 	if err != nil {
 		return errors.Wrapf(err, "failed to send keygen message to node %s (sessionID: %s)", nodeID, sessionID)
 	}
 
 	if !resp.Accepted {
-		return errors.Errorf("node %s rejected keygen message: %s", nodeID, resp.Message)
+		return errors.Errorf("node %s rejected keygen message", nodeID)
+	}
+	if err != nil {
+		return errors.Wrapf(err, "failed to send keygen message to node %s (sessionID: %s)", nodeID, sessionID)
+	}
+
+	if !resp.Accepted {
+		return errors.Errorf("node %s rejected keygen message", nodeID)
 	}
 
 	// 这是一个非常详细的日志，仅在调试时启用
@@ -506,16 +477,18 @@ func (c *GRPCClient) SendDKGStartNotification(ctx context.Context, nodeID string
 		return errors.Wrapf(err, "failed to get connection to node %s", nodeID)
 	}
 
-	// 发送特殊的 "DKG_START" 消息
-	req := &pb.SubmitProtocolMessageRequest{
-		SessionId: sessionID,
-		NodeId:    nodeID,
-		Data:      []byte("DKG_START"), // 特殊标记，participant 会识别并启动 DKG
-		Round:     0,
-		Timestamp: time.Now().Format(time.RFC3339),
+	// 发送特殊的 "DKG_START" 消息（通过 Service 中继）
+	req := &pb.RelayMessageRequest{
+		SessionId:   sessionID,
+		FromNodeId:  c.thisNodeID,
+		ToNodeId:    nodeID,
+		MessageData: []byte("DKG_START"), // 特殊标记，participant 会识别并启动 DKG
+		Round:       0,
+		IsBroadcast: false,
+		Timestamp:   time.Now().Format(time.RFC3339),
 	}
 
-	_, err = client.SubmitProtocolMessage(ctx, req)
+	_, err = client.RelayProtocolMessage(ctx, req)
 	if err != nil {
 		return errors.Wrapf(err, "failed to send DKG start notification to node %s (sessionID: %s)", nodeID, sessionID)
 	}
@@ -534,44 +507,15 @@ func (c *GRPCClient) CloseConnection(nodeID string) error {
 		}
 		delete(c.conns, nodeID)
 		delete(c.clients, nodeID)
-		delete(c.mgmtClients, nodeID)
+		// mgmtClients 已删除（团队签功能已移除）
 	}
 
 	return nil
 }
 
-// SendStartResharing 发送启动密钥轮换请求
-func (c *GRPCClient) SendStartResharing(ctx context.Context, nodeID string, req *pb.StartResharingRequest) (*pb.StartResharingResponse, error) {
-	log.Debug().
-		Str("node_id", nodeID).
-		Str("key_id", req.KeyId).
-		Str("session_id", req.SessionId).
-		Msg("Sending StartResharing RPC to participant")
-
-	client, err := c.getOrCreateConnection(ctx, nodeID)
-	if err != nil {
-		log.Error().Err(err).Str("node_id", nodeID).Msg("Failed to get gRPC connection")
-		return nil, errors.Wrapf(err, "failed to get connection to node %s", nodeID)
-	}
-
-	log.Debug().
-		Str("node_id", nodeID).
-		Str("key_id", req.KeyId).
-		Str("session_id", req.SessionId).
-		Msg("Calling StartResharing RPC")
-
-	resp, err := client.StartResharing(ctx, req)
-	if err != nil {
-		log.Error().
-			Err(err).
-			Str("node_id", nodeID).
-			Str("key_id", req.KeyId).
-			Str("session_id", req.SessionId).
-			Msg("StartResharing RPC call failed")
-		return nil, err
-	}
-
-	return resp, nil
+// SendStartResharing 密钥轮换功能已删除
+func (c *GRPCClient) SendStartResharing(ctx context.Context, nodeID string, req interface{}) (interface{}, error) {
+	return nil, errors.New("key rotation (resharing) is not supported")
 }
 
 // Close 关闭所有连接
@@ -587,8 +531,8 @@ func (c *GRPCClient) Close() error {
 	}
 
 	c.conns = make(map[string]*grpc.ClientConn)
-	c.clients = make(map[string]pb.MPCNodeClient)
-	c.mgmtClients = make(map[string]pb.MPCManagementClient)
+	c.clients = make(map[string]pb.SignerServiceClient)
+	c.mgmtClients = make(map[string]interface{})
 
 	if len(errs) > 0 {
 		return errors.Errorf("errors closing connections: %v", errs)

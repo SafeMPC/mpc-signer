@@ -1,2 +1,0 @@
-subjectAltName=DNS:localhost,DNS:coordinator,DNS:server-proxy-1,DNS:server-proxy-2,DNS:server-backup-1,IP:127.0.0.1
-extendedKeyUsage=serverAuth,clientAuth

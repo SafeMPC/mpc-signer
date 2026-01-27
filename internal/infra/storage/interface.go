@@ -100,18 +100,6 @@ type MetadataStore interface {
 	// Passkey 操作
 	SavePasskey(ctx context.Context, passkey *Passkey) error
 	GetPasskey(ctx context.Context, credentialID string) (*Passkey, error)
-
-	// 团队成员操作
-	AddWalletMember(ctx context.Context, walletID, credentialID, role string) error
-	RemoveWalletMember(ctx context.Context, walletID, credentialID string) error
-	IsWalletMember(ctx context.Context, walletID, credentialID string) (bool, string, error) // returns (isMember, role, error)
-	ListWalletMembers(ctx context.Context, walletID string) ([]string, error)                // returns credentialIDs
-
-	// 备份分片下发记录操作
-	SaveBackupShareDelivery(ctx context.Context, delivery *BackupShareDelivery) error
-	GetBackupShareDelivery(ctx context.Context, keyID, nodeID string, shareIndex int) (*BackupShareDelivery, error)
-	UpdateBackupShareDeliveryStatus(ctx context.Context, keyID, nodeID string, shareIndex int, status string, reason string) error
-	ListBackupShareDeliveries(ctx context.Context, keyID, nodeID string) ([]*BackupShareDelivery, error)
 }
 
 // KeyFilter 密钥过滤条件
@@ -180,41 +168,4 @@ type SessionStore interface {
 
 	// 订阅消息
 	SubscribeMessages(ctx context.Context, channel string) (<-chan interface{}, error)
-}
-
-// BackupShareStorage 备份分片存储接口
-type BackupShareStorage interface {
-	// SaveBackupShare 保存备份分片
-	SaveBackupShare(ctx context.Context, keyID, nodeID string, shareIndex int, shareData []byte) error
-
-	// GetBackupShare 获取备份分片
-	GetBackupShare(ctx context.Context, keyID, nodeID string, shareIndex int) ([]byte, error)
-
-	// ListBackupShares 列出某个MPC分片的所有备份分片
-	ListBackupShares(ctx context.Context, keyID, nodeID string) ([]*BackupShareInfo, error)
-
-	// ListAllBackupShares 列出根密钥的所有备份分片（按nodeID分组）
-	ListAllBackupShares(ctx context.Context, keyID string) (map[string][]*BackupShareInfo, error)
-}
-
-// BackupShareInfo 备份分片信息
-type BackupShareInfo struct {
-	KeyID      string
-	NodeID     string
-	ShareIndex int
-	ShareData  []byte
-	CreatedAt  time.Time
-}
-
-// BackupShareDelivery 备份分片下发记录
-type BackupShareDelivery struct {
-	KeyID         string
-	NodeID        string // 对应的MPC分片ID
-	ShareIndex    int    // SSS分片索引
-	Status        string // pending, delivered, confirmed, failed
-	DeliveredAt   *time.Time
-	ConfirmedAt   *time.Time
-	FailureReason string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
 }

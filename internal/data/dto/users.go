@@ -3,13 +3,13 @@ package dto
 import (
 	"time"
 
+	"github.com/SafeMPC/mpc-signer/internal/models"
+	"github.com/SafeMPC/mpc-signer/internal/types"
+	"github.com/SafeMPC/mpc-signer/internal/util"
 	"github.com/aarondl/null/v8"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/strfmt/conv"
 	"github.com/go-openapi/swag"
-	"github.com/SafeMPC/mpc-signer/internal/models"
-	"github.com/SafeMPC/mpc-signer/internal/types"
-	"github.com/SafeMPC/mpc-signer/internal/util"
 )
 
 type User struct {

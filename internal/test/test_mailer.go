@@ -3,10 +3,10 @@ package test
 import (
 	"testing"
 
-	"github.com/jordan-wright/email"
 	"github.com/SafeMPC/mpc-signer/internal/config"
 	"github.com/SafeMPC/mpc-signer/internal/mailer"
 	"github.com/SafeMPC/mpc-signer/internal/mailer/transport"
+	"github.com/jordan-wright/email"
 )
 
 const (

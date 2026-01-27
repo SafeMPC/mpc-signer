@@ -43,10 +43,11 @@ info-go: ##- (opt) Prints go.mod updates, module-name and current go version.
 lint: check-gen-dirs check-script-dir check-handlers check-embedded-modules-go-not go-lint  ##- Runs golangci-lint and make check-*.
 
 # these recipies may execute in parallel
-# Note: swagger must complete before go-generate (go generate may need generated types)
-build-pre: sql swagger ##- (opt) Runs pre-build related targets (sql, swagger, go-generate-handlers, go-generate).
+# Note: Signer 节点不需要 swagger（没有 REST API），只需要 sql
+build-pre: sql ##- (opt) Runs pre-build related targets (sql, go-generate-handlers, go-generate).
 	@$(MAKE) go-generate
-	@$(MAKE) go-generate-handlers
+	@# Signer 节点不需要 REST handlers，跳过 go-generate-handlers
+	@# @$(MAKE) go-generate-handlers
 
 go-format: ##- (opt) Runs go format.
 	go fmt ./...
@@ -209,7 +210,11 @@ sql-check-and-generate: sql-check-structure sql-boiler ##- (opt) Runs make sql-c
 
 sql-boiler: ##- (opt) Runs sql-boiler introspects the spec db to generate internal/models/*.go.
 	@echo "make sql-boiler"
-	sqlboiler psql
+	@if command -v sqlboiler >/dev/null 2>&1; then \
+		sqlboiler psql; \
+	else \
+		echo "Warning: sqlboiler not found, skipping model generation (this is OK if models already exist)"; \
+	fi
 
 sql-format: ##- (opt) Formats all *.sql files.
 	@echo "make sql-format"
@@ -244,7 +249,11 @@ sql-spec-reset: ##- (opt) Drop and creates our spec database.
 
 sql-spec-migrate: ##- (opt) Applies migrations/*.sql to our spec database.
 	@echo "make sql-spec-migrate"
-	@sql-migrate up -env spec | xargs -i echo "[spec DB]" {}
+	@if command -v sql-migrate >/dev/null 2>&1; then \
+		sql-migrate up -env spec | xargs -i echo "[spec DB]" {}; \
+	else \
+		echo "Warning: sql-migrate not found, skipping migration (this is OK for signer node)"; \
+	fi
 
 sql-check-structure: sql-check-structure-fk-missing-index sql-check-structure-default-zero-values ##- (opt) Runs make sql-check-structure-*.
 

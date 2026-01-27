@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/SafeMPC/mpc-signer/internal/api"
-	"github.com/SafeMPC/mpc-signer/internal/api/handlers/common"
 	"github.com/SafeMPC/mpc-signer/internal/config"
 	"github.com/SafeMPC/mpc-signer/internal/util"
 	"github.com/SafeMPC/mpc-signer/internal/util/command"
@@ -79,7 +78,13 @@ func runLiveness(ctx context.Context, config config.Server, flags LivenessFlags)
 	livenessCtx, cancel := context.WithTimeout(context.Background(), config.Management.LivenessTimeout)
 	defer cancel()
 
-	str, errs := common.ProbeLiveness(livenessCtx, db, config.Management.ProbeWriteablePathsAbs, config.Management.ProbeWriteableTouchfile)
+	// ProbeLiveness 功能已简化（signer 节点不需要复杂的健康检查）
+	var errs []error
+	str := "Liveness check passed"
+	if err := db.PingContext(livenessCtx); err != nil {
+		errs = append(errs, fmt.Errorf("database ping failed: %w", err))
+		str = "Liveness check failed"
+	}
 
 	if flags.Verbose {
 		log.Info().Msg(str)

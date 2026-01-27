@@ -2,15 +2,18 @@ syntax = "proto3";
 
 package mpc.v1;
 
+import "mpc/v1/mpc.proto";
+
 option go_package = "github.com/SafeMPC/mpc-service/pb/mpc/v1;mpc";
 
 // SignerService 由 mpc-signer 实现，供 mpc-service 调用
+// 使用 mpc.proto 中定义的消息类型
 service SignerService {
-  // DKG 相关
+  // DKG 相关（使用 mpc.proto 中的 StartDKGRequest/Response）
   rpc StartDKG(StartDKGRequest) returns (StartDKGResponse);
   rpc GetDKGStatus(GetDKGStatusRequest) returns (DKGStatusResponse);
   
-  // 签名相关
+  // 签名相关（使用 mpc.proto 中的 StartSignRequest/Response）
   rpc StartSign(StartSignRequest) returns (StartSignResponse);
   rpc GetSignStatus(GetSignStatusRequest) returns (SignStatusResponse);
   
@@ -22,24 +25,8 @@ service SignerService {
 }
 
 // ============================================
-// DKG 相关消息
+// DKG 状态查询（新增）
 // ============================================
-
-message StartDKGRequest {
-  string session_id = 1;
-  string key_id = 2;
-  string algorithm = 3;      // "ECDSA"
-  string curve = 4;          // "secp256k1"
-  int32 threshold = 5;       // 2
-  int32 total_nodes = 6;     // 2
-  repeated string node_ids = 7;  // ["mobile-p1", "server-signer-p2"]
-}
-
-message StartDKGResponse {
-  bool started = 1;
-  string message = 2;
-  string error = 3;
-}
 
 message GetDKGStatusRequest {
   string session_id = 1;
@@ -55,25 +42,8 @@ message DKGStatusResponse {
 }
 
 // ============================================
-// 签名相关消息
+// 签名状态查询（新增）
 // ============================================
-
-message StartSignRequest {
-  string session_id = 1;
-  string key_id = 2;
-  bytes message = 3;
-  string protocol = 4;       // "gg20", "frost"
-  int32 threshold = 5;
-  repeated string node_ids = 6;
-  string derivation_path = 7;
-  bytes parent_chain_code = 8;
-}
-
-message StartSignResponse {
-  bool started = 1;
-  string message = 2;
-  string error = 3;
-}
 
 message GetSignStatusRequest {
   string session_id = 1;
@@ -100,7 +70,7 @@ message RelayMessageRequest {
   int32 round = 5;
   bool is_broadcast = 6;
   string timestamp = 7;
-  bytes service_signature = 8;  // Service 对消息的 HMAC 签名（防篡改）
+  bytes client_signature = 8;  // Client (P1) 使用 Passkey 私钥签名（E2E 认证）
 }
 
 message RelayMessageResponse {

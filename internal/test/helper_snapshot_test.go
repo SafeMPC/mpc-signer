@@ -14,9 +14,9 @@ import (
 	"github.com/SafeMPC/mpc-signer/internal/test/mocks"
 	"github.com/SafeMPC/mpc-signer/internal/util"
 
+	apitypes "github.com/SafeMPC/mpc-signer/internal/types"
 	"github.com/aarondl/sqlboiler/v4/types"
 	"github.com/go-openapi/swag"
-	apitypes "github.com/SafeMPC/mpc-signer/internal/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )

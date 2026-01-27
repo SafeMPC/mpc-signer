@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/SafeMPC/mpc-signer/internal/api"
-	"github.com/SafeMPC/mpc-signer/internal/api/router"
 	"github.com/SafeMPC/mpc-signer/internal/config"
 )
 
@@ -75,10 +74,7 @@ func execClosureNewTestServer(ctx context.Context, t *testing.T, config config.S
 		t.Fatalf("Failed to initialize server: %v", err)
 	}
 
-	err = router.Init(s)
-	if err != nil {
-		t.Fatalf("Failed to init router: %v", err)
-	}
+	// Signer 节点不需要 REST API router（只有 gRPC 服务）
 
 	closure(s)
 

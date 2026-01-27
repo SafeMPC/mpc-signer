@@ -9,11 +9,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jordan-wright/email"
 	"github.com/SafeMPC/mpc-signer/internal/config"
 	"github.com/SafeMPC/mpc-signer/internal/data/dto"
 	"github.com/SafeMPC/mpc-signer/internal/mailer/transport"
 	"github.com/SafeMPC/mpc-signer/internal/util"
+	"github.com/jordan-wright/email"
 	"github.com/rs/zerolog/log"
 )
 

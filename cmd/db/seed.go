@@ -5,13 +5,13 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/aarondl/sqlboiler/v4/boil"
 	"github.com/SafeMPC/mpc-signer/internal/api"
 	"github.com/SafeMPC/mpc-signer/internal/config"
 	data "github.com/SafeMPC/mpc-signer/internal/data/fixtures"
 	"github.com/SafeMPC/mpc-signer/internal/util"
 	"github.com/SafeMPC/mpc-signer/internal/util/command"
 	dbutil "github.com/SafeMPC/mpc-signer/internal/util/db"
+	"github.com/aarondl/sqlboiler/v4/boil"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )

@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jordan-wright/email"
 	"github.com/SafeMPC/mpc-signer/internal/util"
+	"github.com/jordan-wright/email"
 )
 
 const defaultWaitTimeout = time.Second * 10

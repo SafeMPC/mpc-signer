@@ -174,19 +174,31 @@ mpc-signer/
 
 ## 🔧 Development
 
-### Build
-```bash
-make build
-```
+### ⚠️ 重要提示：所有 make 命令必须在容器内执行
 
-### Test
-```bash
-make test
-```
+**所有开发命令（`make build`, `make test`, 等）都必须在 Docker 容器内执行**，以确保环境一致性。
 
 ### Access Container
 ```bash
+# 启动服务
+docker compose up -d server-signer-p2
+
+# 进入容器
 docker compose exec server-signer-p2 bash
+```
+
+### 在容器内执行命令
+
+#### 编译
+```bash
+# 在容器内执行
+make build
+```
+
+#### 测试
+```bash
+# 在容器内执行
+make test
 ```
 
 ---

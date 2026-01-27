@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/strfmt/conv"
 	"github.com/SafeMPC/mpc-signer/internal/test"
 	"github.com/SafeMPC/mpc-signer/internal/util"
+	"github.com/go-openapi/strfmt"
+	"github.com/go-openapi/strfmt/conv"
 	"github.com/stretchr/testify/require"
 )
 

@@ -12,13 +12,13 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/SafeMPC/mpc-signer/internal/api/httperrors"
+	"github.com/SafeMPC/mpc-signer/internal/types"
 	"github.com/gabriel-vasile/mimetype"
 	oerrors "github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
-	"github.com/SafeMPC/mpc-signer/internal/api/httperrors"
-	"github.com/SafeMPC/mpc-signer/internal/types"
 	"github.com/labstack/echo/v4"
 )
 
@@ -290,7 +290,13 @@ func validatePayload(c echo.Context, v runtime.Validatable) error {
 
 			valErrs := formatValidationErrors(c.Request().Context(), compositeError)
 
-			return httperrors.NewHTTPValidationError(http.StatusBadRequest, types.PublicHTTPErrorTypeGeneric, http.StatusText(http.StatusBadRequest), valErrs)
+			// 转换为 []interface{}
+			valErrsInterface := make([]interface{}, len(valErrs))
+			for i, v := range valErrs {
+				valErrsInterface[i] = v
+			}
+
+			return httperrors.NewHTTPValidationError(http.StatusBadRequest, types.PublicHTTPErrorTypeGeneric, http.StatusText(http.StatusBadRequest), valErrsInterface)
 		}
 
 		var validationError *oerrors.Validation
@@ -305,7 +311,13 @@ func validatePayload(c echo.Context, v runtime.Validatable) error {
 				},
 			}
 
-			return httperrors.NewHTTPValidationError(http.StatusBadRequest, types.PublicHTTPErrorTypeGeneric, http.StatusText(http.StatusBadRequest), valErrs)
+			// 转换为 []interface{}
+			valErrsInterface := make([]interface{}, len(valErrs))
+			for i, v := range valErrs {
+				valErrsInterface[i] = v
+			}
+
+			return httperrors.NewHTTPValidationError(http.StatusBadRequest, types.PublicHTTPErrorTypeGeneric, http.StatusText(http.StatusBadRequest), valErrsInterface)
 		}
 
 		LogFromEchoContext(c).Error().Err(err).Msg("Failed to validate payload, returning generic HTTP error")
