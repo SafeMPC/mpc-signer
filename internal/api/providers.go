@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +15,7 @@ import (
 	"github.com/SafeMPC/mpc-signer/internal/i18n"
 	"github.com/SafeMPC/mpc-signer/internal/infra/discovery"
 	"github.com/dropbox/godropbox/time2"
+
 	// infra_grpc "github.com/SafeMPC/mpc-signer/internal/infra/grpc" // 已删除
 	"github.com/SafeMPC/mpc-signer/internal/infra/key"
 	"github.com/SafeMPC/mpc-signer/internal/infra/session"
@@ -24,9 +28,12 @@ import (
 	"github.com/SafeMPC/mpc-signer/internal/persistence"
 	"github.com/SafeMPC/mpc-signer/internal/push"
 	"github.com/SafeMPC/mpc-signer/internal/push/provider"
+	pb "github.com/SafeMPC/mpc-signer/pb/mpc/v1"
 	"github.com/kashguard/tss-lib/tss"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // PROVIDERS - define here only providers that for various reasons (e.g. cyclic dependency) can't live in their corresponding packages
@@ -129,8 +136,17 @@ func NewKeyShareStorage(cfg config.Server) (storage.KeyShareStorage, error) {
 	return storage.NewFileSystemKeyShareStorage(cfg.MPC.KeyShareStoragePath, cfg.MPC.KeyShareEncryptionKey)
 }
 
-func NewMPCGRPCClient(cfg config.Server, nodeManager *node.Manager) (*mpcgrpc.GRPCClient, error) {
-	return mpcgrpc.NewGRPCClient(cfg, nodeManager)
+func NewMPCGRPCClient(cfg config.Server, nodeManager *node.Manager, nodeDiscovery *node.Discovery) (*mpcgrpc.GRPCClient, error) {
+	client, err := mpcgrpc.NewGRPCClient(cfg, nodeManager)
+	if err != nil {
+		return nil, err
+	}
+	client.SetNodeDiscovery(nodeDiscovery)
+	return client, nil
+}
+
+func NewStreamManager() *mpcgrpc.StreamManager {
+	return mpcgrpc.NewStreamManager()
 }
 
 func NewMPCGRPCServer(
@@ -140,6 +156,7 @@ func NewMPCGRPCServer(
 	keyShareStorage storage.KeyShareStorage,
 	grpcClient *mpcgrpc.GRPCClient,
 	metadataStore storage.MetadataStore,
+	streamManager *mpcgrpc.StreamManager,
 ) (*mpcgrpc.GRPCServer, error) {
 	nodeID := cfg.MPC.NodeID
 	if nodeID == "" {
@@ -154,6 +171,69 @@ func NewMPCGRPCServer(
 
 	// 创建消息路由器（与 NewProtocolEngine 中的逻辑相同）
 	messageRouter := func(sessionID string, targetNodeID string, msg tss.Message, isBroadcast bool) error {
+		extractRound := func(wireBytes []byte) int32 {
+			var anyMsg anypb.Any
+			if err := proto.Unmarshal(wireBytes, &anyMsg); err != nil {
+				return 0
+			}
+			typeURL := anyMsg.TypeUrl
+			if typeURL == "" {
+				return 0
+			}
+			re := regexp.MustCompile(`Round(\d+)`)
+			matches := re.FindStringSubmatch(typeURL)
+			if len(matches) != 2 {
+				return 0
+			}
+			if n, err := strconv.Atoi(matches[1]); err == nil {
+				return int32(n)
+			}
+			return 0
+		}
+
+		// 优先尝试通过 StreamManager 发送（用于 Mobile Client 直连）
+		if streamManager != nil {
+			// 将 tss.Message 转换为 bytes
+			wireBytes, _, err := msg.WireBytes()
+			if err != nil {
+				return fmt.Errorf("failed to get wire bytes: %w", err)
+			}
+
+			// 构造 ParticipateResponse
+			// 注意：这里的 sessionID 可能是 DKG 的 keyID 或签名 sessionID
+			toNodeID := targetNodeID
+			round := extractRound(wireBytes)
+			if isBroadcast {
+				toNodeID = ""
+			}
+			resp := &pb.ParticipateResponse{
+				SessionId:  sessionID,
+				FromNodeId: thisNodeID,
+				ToNodeId:   toNodeID,
+				Data:       wireBytes,
+				MsgType:    msg.Type(),
+				Round:      round,
+			}
+
+			waitTimeout := 10 * time.Second
+			if strings.HasPrefix(targetNodeID, "mobile-") || strings.HasPrefix(targetNodeID, "client-") {
+				waitTimeout = 60 * time.Second
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), waitTimeout)
+			defer cancel()
+
+			// 如果能发送成功，说明是直连节点
+			if err := streamManager.SendWithWait(ctx, targetNodeID, resp); err == nil {
+				log.Debug().Str("target_node", targetNodeID).Msg("Sent message via stream manager")
+				return nil
+			}
+			// Mobile 节点消息：优先直连流；如果未连接，不回退到 Service 中继（避免依赖 Service 节点存在）
+			if strings.HasPrefix(targetNodeID, "mobile-") || strings.HasPrefix(targetNodeID, "client-") {
+				return fmt.Errorf("mobile participate stream not available for node %s", targetNodeID)
+			}
+			// 如果失败（例如节点未连接），回退到 gRPC Client
+		}
+
 		ctx := context.Background()
 		if len(sessionID) > 0 && sessionID[:4] == "key-" {
 			// DKG消息
@@ -173,7 +253,9 @@ func NewMPCGRPCServer(
 	registry.Register("gg20", gg20Engine)
 	registry.Register("frost", frostEngine)
 
-	return mpcgrpc.NewGRPCServerWithRegistry(cfg, protocolEngine, registry, sessionManager, keyShareStorage, metadataStore, nodeID), nil
+	server := mpcgrpc.NewGRPCServerWithRegistry(cfg, protocolEngine, registry, sessionManager, keyShareStorage, metadataStore, nodeID)
+	server.SetStreamManager(streamManager)
+	return server, nil
 }
 
 func NewProtocolEngine(cfg config.Server, grpcClient *mpcgrpc.GRPCClient, keyShareStorage storage.KeyShareStorage) protocol.Engine {

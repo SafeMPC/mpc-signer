@@ -16,6 +16,9 @@ type Manager struct {
 	sessionStore  storage.SessionStore
 	timeout       time.Duration
 	stateStore    *StateStore
+
+	// OnSessionCompleted 会话完成时的回调
+	OnSessionCompleted func(sessionID string, result string, isKeygen bool)
 }
 
 // NewManager 创建会话管理器
@@ -310,6 +313,12 @@ func (m *Manager) CompleteSession(ctx context.Context, sessionID string, signatu
 		return errors.Wrap(err, "failed to update session")
 	}
 
+	// 触发回调
+	if m.OnSessionCompleted != nil {
+		// 异步执行回调，避免阻塞
+		go m.OnSessionCompleted(sessionID, signature, false)
+	}
+
 	return nil
 }
 
@@ -387,6 +396,12 @@ func (m *Manager) CompleteKeygenSession(ctx context.Context, keyID string, publi
 		Str("new_status", "Active").
 		Str("public_key", publicKey).
 		Msg("Key metadata updated successfully - DKG completed")
+
+	// 触发回调
+	if m.OnSessionCompleted != nil {
+		// 异步执行回调，避免阻塞
+		go m.OnSessionCompleted(keyID, publicKey, true)
+	}
 
 	return nil
 }

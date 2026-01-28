@@ -18,10 +18,39 @@ service SignerService {
   rpc GetSignStatus(GetSignStatusRequest) returns (SignStatusResponse);
   
   // 协议消息中继（从 Client 通过 Service 中继到 Signer）
-  rpc RelayProtocolMessage(RelayMessageRequest) returns (RelayMessageResponse);
+  rpc RelayProtocolMessage(RelayMessageRequest) returns (RelayMessageResponse) {
+    option deprecated = true;
+  };
+  
+  // Client 直连参与 MPC（流式接口，V3 新增）
+  rpc Participate(stream ParticipateRequest) returns (stream ParticipateResponse);
   
   // 健康检查
   rpc Ping(PingRequest) returns (PongResponse);
+}
+
+// ============================================
+// Client 直连相关 (V3)
+// ============================================
+
+message ParticipateRequest {
+  string session_id = 1;
+  string from_node_id = 2; // Client Node ID
+  string to_node_id = 3;   // Signer Node ID
+  bytes data = 4;          // tss-lib wire bytes
+  string msg_type = 5;     // 消息类型
+  int32 round = 6;
+  string session_token = 7; // 仅第一条消息需要，用于鉴权
+}
+
+message ParticipateResponse {
+  string session_id = 1;
+  string from_node_id = 2; // Signer Node ID
+  string to_node_id = 3;   // Client Node ID
+  bytes data = 4;          // tss-lib wire bytes
+  string msg_type = 5;
+  int32 round = 6;
+  string error = 7;
 }
 
 // ============================================

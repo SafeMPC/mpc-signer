@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/SafeMPC/mpc-signer/internal/config"
 	"github.com/SafeMPC/mpc-signer/internal/data/dto"
@@ -28,9 +30,12 @@ import (
 	"github.com/SafeMPC/mpc-signer/internal/infra/signing"
 	mpcgrpc "github.com/SafeMPC/mpc-signer/internal/mpc/grpc"
 	"github.com/SafeMPC/mpc-signer/internal/mpc/node"
+	pb "github.com/SafeMPC/mpc-signer/pb/mpc/v1" // 引入 proto 定义，用于 RegisterNode
 
 	// Import postgres driver for database/sql package
 	_ "github.com/lib/pq"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Router struct {
@@ -225,6 +230,7 @@ func (s *Server) Start() error {
 			Int("grpc_port", s.Config.MPC.GRPCPort).
 			Msg("Registering node to Consul")
 
+		// 1.1 V2 兼容：继续注册到 Consul (用于节点间发现)
 		err := s.DiscoveryService.RegisterNode(ctx, s.Config.MPC.NodeID, s.Config.MPC.NodeType, serviceHost, s.Config.MPC.GRPCPort)
 		if err != nil {
 			// 注册失败不应阻止服务启动，记录警告日志
@@ -237,7 +243,12 @@ func (s *Server) Start() error {
 			log.Info().
 				Str("node_id", s.Config.MPC.NodeID).
 				Str("node_type", s.Config.MPC.NodeType).
-				Msg("Node registered to service discovery")
+				Msg("Node registered to service discovery (Consul)")
+		}
+
+		// 1.2 V3 新增：如果是 Signer 节点，还需要调用 Service 的 RegisterNode 接口
+		if s.Config.MPC.NodeType == "signer" {
+			go s.registerToManagementService(ctx, serviceHost)
 		}
 	}
 
@@ -320,4 +331,71 @@ func (s *Server) Shutdown(ctx context.Context) []error {
 	}
 
 	return errs
+}
+
+// registerToManagementService 向 Management Service 注册自己 (V3)
+func (s *Server) registerToManagementService(ctx context.Context, serviceHost string) {
+	// 发现 Service 节点
+	// 优先使用环境变量配置的 Service 地址
+	serviceAddr := os.Getenv("MPC_SERVICE_ADDR")
+	if serviceAddr == "" {
+		// 回退到服务发现或默认值
+		// 在 docker-compose 中，Service 节点名为 "mpc-service"，端口 9091 (gRPC)
+		serviceAddr = "mpc-service:9091"
+	}
+
+	log.Info().Str("service_addr", serviceAddr).Msg("Connecting to Management Service")
+
+	// 建立 gRPC 连接
+	// TODO: 在生产环境应启用 TLS
+	conn, err := grpc.DialContext(ctx, serviceAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+		grpc.WithTimeout(5*time.Second),
+	)
+	if err != nil {
+		log.Error().Err(err).Str("service_addr", serviceAddr).Msg("Failed to connect to Management Service")
+		return
+	}
+	defer conn.Close()
+
+	client := pb.NewManagementServiceClient(conn)
+
+	// 构造注册请求
+	// 构造 endpoint: host:port
+	endpoint := fmt.Sprintf("%s:%d", serviceHost, s.Config.MPC.GRPCPort)
+
+	req := &pb.RegisterNodeRequest{
+		NodeId:       s.Config.MPC.NodeID,
+		Endpoint:     endpoint,
+		Capabilities: []string{"gg20", "frost", "ecdsa", "eddsa"}, // 支持的能力
+		PublicKey:    "",                                          // 可选：Signer 的身份公钥
+	}
+
+	// 循环注册和心跳
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	// 首次注册
+	resp, err := client.RegisterNode(ctx, req)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to register node to Management Service")
+	} else if resp.Registered {
+		log.Info().Msg("Successfully registered node to Management Service")
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			// 发送心跳或重新注册
+			// 简单起见，这里直接调用 RegisterNode 刷新 TTL
+			_, err := client.RegisterNode(ctx, req)
+			if err != nil {
+				log.Warn().Err(err).Msg("Failed to refresh registration with Management Service")
+				// 尝试重连？
+			}
+		}
+	}
 }

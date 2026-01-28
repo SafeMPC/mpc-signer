@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package mpc.v1;
+
+option go_package = "github.com/SafeMPC/mpc-service/pb/mpc/v1;mpc";
+
+// ManagementService 由 mpc-service 实现，供 mpc-signer 调用
+service ManagementService {
+  // 节点注册：Signer 启动时调用
+  rpc RegisterNode(RegisterNodeRequest) returns (RegisterNodeResponse);
+  
+  // 结果上报：Signer 完成 MPC 计算后调用
+  rpc ReportResult(ReportResultRequest) returns (ReportResultResponse);
+  
+  // 心跳保活
+  rpc Heartbeat(ServiceHeartbeatRequest) returns (ServiceHeartbeatResponse);
+}
+
+message RegisterNodeRequest {
+  string node_id = 1;
+  string endpoint = 2; // gRPC endpoint (e.g., "1.2.3.4:9091")
+  string public_key = 3; // 节点公钥（可选，用于验证）
+  repeated string capabilities = 4; // 支持的协议 (e.g., ["gg18", "gg20"])
+}
+
+message RegisterNodeResponse {
+  bool registered = 1;
+  string message = 2;
+  int64 expires_at = 3; // 注册过期时间
+}
+
+message ReportResultRequest {
+  string session_id = 1;
+  string node_id = 2;
+  string result_type = 3; // "DKG_PUBKEY" or "SIGNATURE"
+  string data = 4; // hex encoded result
+  bytes signature = 5; // 对结果的签名（防篡改）
+  string error = 6; // 如果失败，填错误信息
+}
+
+message ReportResultResponse {
+  bool received = 1;
+}
+
+message ServiceHeartbeatRequest {
+  string node_id = 1;
+  string status = 2; // "active", "busy", etc.
+}
+
+message ServiceHeartbeatResponse {
+  bool acknowledged = 1;
+}

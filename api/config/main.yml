@@ -1,0 +1,92 @@
+# This is our base swagger file and the primary mixin target.
+# Everything in definitions|paths/*.yml will be mixed through
+# and finally flattened into the actual swagger.yml in this dir.
+consumes:
+  - application/json
+produces:
+  - application/json
+swagger: "2.0"
+info:
+  title: github.com/SafeMPC/mpc-service
+  version: 0.1.0
+  description: API documentation
+paths: {}
+securityDefinitions:
+  Bearer:
+    type: apiKey
+    name: Authorization
+    in: header
+    description: |-
+      Access token for application access, **must** include "Bearer " prefix.
+      Example: `Bearer b4a94a42-3ea2-4af3-9699-8bcbfee6e6d2`
+    x-keyPrefix: "Bearer "
+  Management:
+    type: apiKey
+    in: query
+    description: Management secret, used for monitoring and infrastructure related calls
+    name: mgmt-secret
+definitions:
+  # Any definitions that are not yet used within paths/*.yml are automatically removed from the resulting swagger.yml.
+  # You may reference some definitions that you *always* want to be included here.
+  # --
+  # Always include orderDir so we can test binding it to db queries directly.
+  orderDir:
+    type: string
+    enum:
+      - asc
+      - desc
+  # WebAuthn definitions
+  postWebAuthnRegisterBeginPayload:
+    $ref: "../definitions/webauthn.yml#/definitions/PostWebAuthnRegisterBeginPayload"
+  webAuthnRegisterBeginResponse:
+    $ref: "../definitions/webauthn.yml#/definitions/WebAuthnRegisterBeginResponse"
+  postWebAuthnRegisterFinishPayload:
+    $ref: "../definitions/webauthn.yml#/definitions/PostWebAuthnRegisterFinishPayload"
+  postWebAuthnLoginBeginPayload:
+    $ref: "../definitions/webauthn.yml#/definitions/PostWebAuthnLoginBeginPayload"
+  webAuthnLoginBeginResponse:
+    $ref: "../definitions/webauthn.yml#/definitions/WebAuthnLoginBeginResponse"
+  postWebAuthnLoginFinishPayload:
+    $ref: "../definitions/webauthn.yml#/definitions/PostWebAuthnLoginFinishPayload"
+  webAuthnLoginResponse:
+    $ref: "../definitions/webauthn.yml#/definitions/WebAuthnLoginResponse"
+  # Wallet definitions
+  webAuthnAssertion:
+    $ref: "../definitions/wallets.yml#/definitions/WebAuthnAssertion"
+  postCreateWalletPayload:
+    $ref: "../definitions/wallets.yml#/definitions/PostCreateWalletPayload"
+  createWalletResponse:
+    $ref: "../definitions/wallets.yml#/definitions/CreateWalletResponse"
+  listWalletsResponse:
+    $ref: "../definitions/wallets.yml#/definitions/ListWalletsResponse"
+  walletSummary:
+    $ref: "../definitions/wallets.yml#/definitions/WalletSummary"
+  walletResponse:
+    $ref: "../definitions/wallets.yml#/definitions/WalletResponse"
+  postGenerateWalletAddressPayload:
+    $ref: "../definitions/wallets.yml#/definitions/PostGenerateWalletAddressPayload"
+  postGenerateWalletAddressBody:
+    $ref: "../definitions/wallets.yml#/definitions/PostGenerateWalletAddressBody"
+  generateAddressResponse:
+    $ref: "../definitions/wallets.yml#/definitions/GenerateAddressResponse"
+  walletBalanceResponse:
+    $ref: "../definitions/wallets.yml#/definitions/WalletBalanceResponse"
+  transactionsResponse:
+    $ref: "../definitions/wallets.yml#/definitions/TransactionsResponse"
+  transaction:
+    $ref: "../definitions/wallets.yml#/definitions/Transaction"
+  postSignTransactionPayload:
+    $ref: "../definitions/wallets.yml#/definitions/PostSignTransactionPayload"
+  signTransactionResponse:
+    $ref: "../definitions/wallets.yml#/definitions/SignTransactionResponse"
+  # Session definitions
+  sessionResponse:
+    $ref: "../definitions/sessions.yml#/definitions/SessionResponse"
+  getSessionResponse:
+    $ref: "../definitions/sessions.yml#/definitions/SessionResponse"
+
+responses:
+  errorResponse:
+    description: Standard error response
+    schema:
+      $ref: "../definitions/errors.yml#/definitions/PublicHTTPError"

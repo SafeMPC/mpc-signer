@@ -509,36 +509,14 @@ func (m *tssPartyManager) executeKeygen(
 				log.Info().
 					Str("key_id", keyID).
 					Str("this_node_id", thisNodeID).
-					Int("party_count", len(m.nodeIDToPartyID)).
+					Int("party_count", len(nodeIDs)).
 					Msg("Message has no target nodes, broadcasting to all other nodes (tss outCh)")
 
-				// 获取所有其他节点的 PartyID
-				m.mu.RLock()
-				allPartyIDs := make([]*tss.PartyID, 0, len(m.nodeIDToPartyID))
-				for nodeID, partyID := range m.nodeIDToPartyID {
-					if nodeID != thisNodeID {
-						allPartyIDs = append(allPartyIDs, partyID)
-					}
-				}
-				m.mu.RUnlock()
-
 				// 将消息发送给所有其他节点（标记 isBroadcast）
-				for _, partyID := range allPartyIDs {
-					targetNodeID, ok := m.partyIDToNodeID[partyID.Id]
-					if !ok {
-						log.Error().
-							Str("partyID", partyID.Id).
-							Str("keyID", keyID).
-							Msg("Failed to find nodeID for partyID in broadcast")
+				for _, targetNodeID := range nodeIDs {
+					if targetNodeID == thisNodeID {
 						continue
 					}
-
-					log.Error().
-						Str("keyID", keyID).
-						Str("targetNodeID", targetNodeID).
-						Str("partyID", partyID.Id).
-						Msg("Broadcasting message to node (marked isBroadcast)")
-
 					// 通过 messageRouter 发送（tss.Message 将在对端被序列化处理；标记广播语义由 UpdateFromBytes 的 isBroadcast 参数控制）
 					if err := m.messageRouter(sessionID, targetNodeID, msg, true); err != nil {
 						log.Error().
@@ -968,9 +946,7 @@ func (m *tssPartyManager) executeSigning(
 		}()).
 		Msg("🔍 [DIAGNOSTIC] Created TSS parameters for signing")
 
-	// 计算消息哈希
-	hash := sha256.Sum256(message)
-	msgBigInt := new(big.Int).SetBytes(hash[:])
+	msgBigInt := new(big.Int).SetBytes(message)
 
 	// 创建消息通道
 	outCh := make(chan tss.Message, len(parties))
@@ -1285,15 +1261,19 @@ func (m *tssPartyManager) executeSigning(
 				m.mu.RUnlock()
 
 				if isBroadcast {
-					// 广播到所有节点（SendSigningMessage 会自行跳过发送给自身）
-					m.mu.RLock()
-					allTargetNodeIDs := make([]string, 0, len(m.partyIDToNodeID))
-					for _, targetNodeID := range m.partyIDToNodeID {
-						if targetNodeID != thisNodeID {
+					// 广播只应发送给当前会话参与方（排除自身），不能使用全局映射表，否则会把历史 mobile 节点也当成目标
+					allTargetNodeIDs := make([]string, 0, len(parties))
+					for _, pid := range parties {
+						if pid == nil {
+							continue
+						}
+						if pid.Id == thisPartyID.Id {
+							continue
+						}
+						if targetNodeID, ok := m.getNodeID(pid.Id); ok && targetNodeID != thisNodeID {
 							allTargetNodeIDs = append(allTargetNodeIDs, targetNodeID)
 						}
 					}
-					m.mu.RUnlock()
 
 					log.Info().
 						Str("session_id", sessionID).

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -332,8 +333,85 @@ func (c *GRPCClient) SendSigningMessage(ctx context.Context, nodeID string, msg 
 		return nil // 不返回错误，只是跳过
 	}
 
-	client, err := c.getOrCreateConnection(ctx, nodeID)
-	if err != nil {
+	// 对于移动端节点（mobile-* 或 client-*），直接通过 Service 中继，不尝试直接连接
+	isMobileNode := strings.HasPrefix(nodeID, "mobile-") || strings.HasPrefix(nodeID, "client-")
+
+	var client pb.SignerServiceClient
+	var err error
+	if !isMobileNode {
+		// 非移动端节点，尝试直接连接
+		client, err = c.getOrCreateConnection(ctx, nodeID)
+	}
+
+	if isMobileNode || err != nil {
+		// 移动端节点或直接连接失败，通过 Service 中继
+		if isMobileNode {
+			log.Info().
+				Str("session_id", sessionID).
+				Str("target_node_id", nodeID).
+				Msg("Mobile node detected, routing via Service relay")
+		} else {
+			log.Warn().
+				Err(err).
+				Str("session_id", sessionID).
+				Str("target_node_id", nodeID).
+				Msg("Failed to get direct connection to target node, attempting to relay via Service")
+		}
+
+		// 尝试发现 Service 节点
+		if c.nodeDiscovery != nil {
+			serviceNodes, discoverErr := c.nodeDiscovery.DiscoverNodes(ctx, node.NodeTypeService, node.NodeStatusActive, 1)
+			if discoverErr == nil && len(serviceNodes) > 0 {
+				serviceNode := serviceNodes[0]
+				serviceClient, serviceErr := c.getOrCreateConnection(ctx, serviceNode.NodeID)
+				if serviceErr == nil {
+					// 通过 Service 中继消息
+					msgBytes, _, serializeErr := msg.WireBytes()
+					if serializeErr != nil {
+						return errors.Wrap(serializeErr, "failed to serialize tss message")
+					}
+
+					round := int32(0)
+					isBroadcast := len(msg.GetTo()) == 0
+					if isBroadcast {
+						round = -1
+					}
+
+					relayReq := &pb.RelayMessageRequest{
+						SessionId:   sessionID,
+						FromNodeId:  c.thisNodeID,
+						ToNodeId:    nodeID,
+						MessageData: msgBytes,
+						Round:       round,
+						IsBroadcast: isBroadcast,
+						Timestamp:   time.Now().Format(time.RFC3339),
+					}
+
+					resp, relayErr := serviceClient.RelayProtocolMessage(ctx, relayReq)
+					if relayErr == nil && resp.Accepted {
+						log.Info().
+							Str("session_id", sessionID).
+							Str("target_node_id", nodeID).
+							Str("service_node_id", serviceNode.NodeID).
+							Msg("Successfully relayed signing message via Service")
+						return nil
+					}
+					if relayErr != nil {
+						log.Warn().
+							Err(relayErr).
+							Str("session_id", sessionID).
+							Str("target_node_id", nodeID).
+							Str("service_node_id", serviceNode.NodeID).
+							Msg("Failed to relay message via Service")
+					}
+				}
+			}
+		}
+
+		// 如果 Service 中继失败，返回错误
+		if isMobileNode {
+			return errors.Errorf("failed to relay message to mobile node %s via Service (no Service node available or relay failed)", nodeID)
+		}
 		return errors.Wrapf(err, "failed to get connection to node %s", nodeID)
 	}
 
@@ -411,8 +489,107 @@ func (c *GRPCClient) SendKeygenMessage(ctx context.Context, nodeID string, msg t
 		return nil // 不返回错误，只是跳过
 	}
 
-	client, err := c.getOrCreateConnection(ctx, nodeID)
-	if err != nil {
+	// 对于移动端节点（mobile-* 或 client-*），直接通过 Service 中继，不尝试直接连接
+	isMobileNode := strings.HasPrefix(nodeID, "mobile-") || strings.HasPrefix(nodeID, "client-")
+
+	var client pb.SignerServiceClient
+	var err error
+	if !isMobileNode {
+		// 非移动端节点，尝试直接连接
+		client, err = c.getOrCreateConnection(ctx, nodeID)
+	}
+
+	if isMobileNode || err != nil {
+		// 移动端节点或直接连接失败，通过 Service 中继
+		if isMobileNode {
+			log.Info().
+				Str("session_id", sessionID).
+				Str("target_node_id", nodeID).
+				Msg("Mobile node detected, routing via Service relay")
+		} else {
+			log.Warn().
+				Err(err).
+				Str("session_id", sessionID).
+				Str("target_node_id", nodeID).
+				Msg("Failed to get direct connection to target node, attempting to relay via Service")
+		}
+
+		// 尝试发现 Service 节点
+		if c.nodeDiscovery != nil {
+			serviceNodes, discoverErr := c.nodeDiscovery.DiscoverNodes(ctx, node.NodeTypeService, node.NodeStatusActive, 1)
+			if discoverErr != nil {
+				log.Warn().
+					Err(discoverErr).
+					Str("session_id", sessionID).
+					Msg("Failed to discover Service node for DKG relay")
+			} else if len(serviceNodes) == 0 {
+				log.Warn().
+					Str("session_id", sessionID).
+					Msg("No Service nodes found for DKG message relay")
+			} else {
+				serviceNode := serviceNodes[0]
+				serviceClient, serviceErr := c.getOrCreateConnection(ctx, serviceNode.NodeID)
+				if serviceErr != nil {
+					log.Error().
+						Err(serviceErr).
+						Str("session_id", sessionID).
+						Str("service_node_id", serviceNode.NodeID).
+						Msg("Failed to connect to Service node for DKG message relay")
+				} else {
+					// 通过 Service 中继消息
+					msgBytes, _, serializeErr := msg.WireBytes()
+					if serializeErr != nil {
+						return errors.Wrap(serializeErr, "failed to serialize tss message")
+					}
+
+					round := int32(0)
+					if len(msg.GetTo()) == 0 || isBroadcast {
+						round = -1
+					}
+
+					relayReq := &pb.RelayMessageRequest{
+						SessionId:   sessionID,
+						FromNodeId:  c.thisNodeID,
+						ToNodeId:    nodeID,
+						MessageData: msgBytes,
+						Round:       round,
+						IsBroadcast: isBroadcast,
+						Timestamp:   time.Now().Format(time.RFC3339),
+					}
+
+					resp, relayErr := serviceClient.RelayProtocolMessage(ctx, relayReq)
+					if relayErr != nil {
+						log.Error().
+							Err(relayErr).
+							Str("session_id", sessionID).
+							Str("target_node_id", nodeID).
+							Str("service_node_id", serviceNode.NodeID).
+							Msg("RelayProtocolMessage call failed for DKG")
+					} else if resp != nil {
+						if resp.Accepted {
+							log.Info().
+								Str("session_id", sessionID).
+								Str("target_node_id", nodeID).
+								Str("service_node_id", serviceNode.NodeID).
+								Msg("Successfully relayed DKG message via Service")
+							return nil
+						} else {
+							log.Warn().
+								Str("session_id", sessionID).
+								Str("target_node_id", nodeID).
+								Str("service_node_id", serviceNode.NodeID).
+								Str("message_id", resp.MessageId).
+								Msg("Service rejected DKG relay request")
+						}
+					}
+				}
+			}
+		}
+
+		// 如果 Service 中继失败，返回错误
+		if isMobileNode {
+			return errors.Errorf("failed to relay message to mobile node %s via Service (no Service node available or relay failed)", nodeID)
+		}
 		return errors.Wrapf(err, "failed to get connection to node %s", nodeID)
 	}
 

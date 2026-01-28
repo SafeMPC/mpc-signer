@@ -8,15 +8,14 @@ package api
 
 import (
 	"database/sql"
+	"testing"
+
 	"github.com/SafeMPC/mpc-signer/internal/auth"
 	"github.com/SafeMPC/mpc-signer/internal/config"
 	"github.com/SafeMPC/mpc-signer/internal/data/local"
 	"github.com/SafeMPC/mpc-signer/internal/metrics"
 	"github.com/google/wire"
-	"testing"
-)
 
-import (
 	_ "github.com/lib/pq"
 )
 
@@ -58,12 +57,12 @@ func InitNewServer(server config.Server) (*Server, error) {
 		return nil, err
 	}
 	manager := NewNodeManager(discoveryService, server)
-	grpcClient, err := NewMPCGRPCClient(server, manager)
+	discovery := NewNodeDiscovery(manager, discoveryService)
+	grpcClient, err := NewMPCGRPCClient(server, manager, discovery)
 	if err != nil {
 		return nil, err
 	}
 	engine := NewProtocolEngine(server, grpcClient, keyShareStorage)
-	discovery := NewNodeDiscovery(manager, discoveryService)
 	dkgService := NewDKGServiceProvider(metadataStore, keyShareStorage, engine, manager, discovery, grpcClient, server)
 	keyService := NewKeyServiceProvider(metadataStore, keyShareStorage, engine, dkgService)
 	client, err := NewRedisClient(server)
@@ -74,7 +73,8 @@ func InitNewServer(server config.Server) (*Server, error) {
 	sessionManager := NewSessionManager(metadataStore, sessionStore, server)
 	signingService := NewSigningServiceProvider(keyService, engine, sessionManager, discovery, server, grpcClient)
 	registry := NewNodeRegistry(manager)
-	grpcServer, err := NewMPCGRPCServer(server, engine, sessionManager, keyShareStorage, grpcClient, metadataStore)
+	streamManager := NewStreamManager()
+	grpcServer, err := NewMPCGRPCServer(server, engine, sessionManager, keyShareStorage, grpcClient, metadataStore, streamManager)
 	if err != nil {
 		return nil, err
 	}
@@ -114,12 +114,12 @@ func InitNewServerWithDB(server config.Server, db *sql.DB, t ...*testing.T) (*Se
 		return nil, err
 	}
 	manager := NewNodeManager(discoveryService, server)
-	grpcClient, err := NewMPCGRPCClient(server, manager)
+	discovery := NewNodeDiscovery(manager, discoveryService)
+	grpcClient, err := NewMPCGRPCClient(server, manager, discovery)
 	if err != nil {
 		return nil, err
 	}
 	engine := NewProtocolEngine(server, grpcClient, keyShareStorage)
-	discovery := NewNodeDiscovery(manager, discoveryService)
 	dkgService := NewDKGServiceProvider(metadataStore, keyShareStorage, engine, manager, discovery, grpcClient, server)
 	keyService := NewKeyServiceProvider(metadataStore, keyShareStorage, engine, dkgService)
 	client, err := NewRedisClient(server)
@@ -130,7 +130,8 @@ func InitNewServerWithDB(server config.Server, db *sql.DB, t ...*testing.T) (*Se
 	sessionManager := NewSessionManager(metadataStore, sessionStore, server)
 	signingService := NewSigningServiceProvider(keyService, engine, sessionManager, discovery, server, grpcClient)
 	registry := NewNodeRegistry(manager)
-	grpcServer, err := NewMPCGRPCServer(server, engine, sessionManager, keyShareStorage, grpcClient, metadataStore)
+	streamManager := NewStreamManager()
+	grpcServer, err := NewMPCGRPCServer(server, engine, sessionManager, keyShareStorage, grpcClient, metadataStore, streamManager)
 	if err != nil {
 		return nil, err
 	}

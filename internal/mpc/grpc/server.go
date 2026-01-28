@@ -1357,6 +1357,16 @@ func (s *GRPCServer) Participate(stream pb.SignerService_ParticipateServer) erro
 		defer s.streamManager.Unregister(mobileNodeID)
 	}
 
+	_ = stream.Send(&pb.ParticipateResponse{
+		SessionId:  "",
+		FromNodeId: s.nodeID,
+		ToNodeId:   mobileNodeID,
+		Data:       nil,
+		MsgType:    "control.connected",
+		Round:      0,
+		Error:      "",
+	})
+
 	// 2. 启动消息处理循环
 	// 我们需要两个 goroutine：
 	// - 一个从 stream 读取消息 -> 写入 sessionManager (Input)
@@ -1388,9 +1398,7 @@ func (s *GRPCServer) Participate(stream pb.SignerService_ParticipateServer) erro
 			// 我们可以尝试解析 req.Data 来判断？或者默认 false？
 			// 或者修改 proto 添加 IsBroadcast 字段？
 
-			// 暂时假设 false，或者根据 MsgType (如果可用)
-			isBroadcast := false
-			// 如果 MsgType 包含 "broadcast"，则设为 true? (这依赖于 tss-lib 的命名)
+			isBroadcast := req.ToNodeId == "" || req.Round == -1
 
 			// 消息来自 mobileNodeID
 			if err := s.handleProtocolMessage(ctx, sessionID, mobileNodeID, req.Data, req.Round, isBroadcast); err != nil {
